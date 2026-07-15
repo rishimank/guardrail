@@ -1,4 +1,4 @@
-# CLAUDE.md — GuardrailAI
+# CLAUDE.md — Guardrail
 
 Project context auto-loaded each session. Keep it short and current.
 
@@ -108,7 +108,7 @@ build the seam *before* you need it.
 
 ## Repo & workflow
 
-- Repo: **`rishimank/guardrailai`** (private).
+- Repo: **`rishimank/guardrail`** (private).
 - **Auto-commit hook** (`.claude/settings.json`): commits after every Write/Edit, but
   **never pushes**. Pushing is manual — typically once per completed phase, and only when
   the owner OKs it.

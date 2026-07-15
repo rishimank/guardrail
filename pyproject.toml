@@ -1,5 +1,5 @@
 [project]
-name = "guardrailai"
+name = "guardrail"
 version = "0.1.0"
 description = "Automated adversarial eval framework for LLM failure modes"
 requires-python = ">=3.11"
