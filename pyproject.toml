@@ -49,5 +49,7 @@ line-length = 100
 target-version = "py311"
 
 [tool.mypy]
-python_version = "3.11"
+# Must match the venv actually in use (3.13). At 3.11 mypy parsed numpy's stubs as
+# invalid syntax and bailed before reaching src/ — type checking was silently a no-op.
+python_version = "3.13"
 ignore_missing_imports = true

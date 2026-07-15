@@ -13,6 +13,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# DeepEval's local tool state (telemetry/login config), not project config.
+.deepeval/
 
 # --- Model weights (huge; re-downloaded from HuggingFace) ---
 # Qwen2.5-3B-4bit is ~1.7GB. Never in git.
