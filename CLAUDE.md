@@ -41,7 +41,7 @@ Two things protect the reduction claim specifically:
 ## Status
 
 **Phase 0 — in progress.** 0.1 done (2026-07-14): repo scaffolded, venv on Python 3.13.7,
-core+dev deps installed and imports verified (deepeval 4.1.0, langsmith 0.10.4,
+core+dev deps installed and imports verified (deepeval 4.1.0, langsmith 0.10.5,
 anthropic 0.116.0, fastapi 0.139.0, scipy 1.18.0). 0.3 done: auto-commit hook ported from
 `fleet-report-rag`. 0.6 done (2026-07-15): private repo `rishimank/guardrail` created and
 `main` pushed. 0.4 + 0.5 done (2026-07-15): `.env` populated; both keys verified live —
