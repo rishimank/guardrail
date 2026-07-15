@@ -43,8 +43,35 @@ Two things protect the reduction claim specifically:
 **Phase 0 — in progress.** 0.1 done (2026-07-14): repo scaffolded, venv on Python 3.13.7,
 core+dev deps installed and imports verified (deepeval 4.1.0, langsmith 0.10.4,
 anthropic 0.116.0, fastapi 0.139.0, scipy 1.18.0). 0.3 done: auto-commit hook ported from
-`fleet-report-rag`. **Next:** 0.4 (Anthropic key + billing limit), 0.5 (LangSmith key),
-0.6 (create private repo).
+`fleet-report-rag`. 0.6 done (2026-07-15): private repo `rishimank/guardrail` created and
+`main` pushed. 0.4 + 0.5 done (2026-07-15): `.env` populated; both keys verified live —
+`claude-haiku-4-5` returned a real completion (confirming the judge model id) and LangSmith
+authenticated. **Phase 0 complete.**
+
+**Phase 1 — in progress.** 1.1 done (2026-07-15): `mlx-lm` 0.31.3 / `mlx` 0.32.0 installed,
+Qwen2.5-3B-Instruct-4bit downloaded (1.6 GB, HF cache), generation confirmed. Measured
+**~71 tok/s** steady-state (3 runs, 69.6–72.0, warm-up discarded) → a 500-prompt run is
+**~24 min** serially. Output appeared deterministic across runs (identical token counts) —
+`mlx-lm` likely defaults to greedy decoding; verify and make temperature explicit in 1.2.
+1.2 done: `sut/base.py` — `SUT` Protocol (structural, not inheritance) + frozen `Response`
+(text, model_id, latency_s, prompt_tokens, completion_tokens). Greedy (temp 0.0) is the
+documented default: reproducibility is what makes a measured delta attributable.
+1.3 done: `sut/mock.py` (`MockSUT`, canned/offline/free) + `sut/mlx_sut.py` (`MLXSUT`, real
+Qwen, lazy mlx import so linux CI can still import the package). Both pass
+`isinstance(x, SUT)`; both return "Paris".
+Also fixed: `[tool.mypy] python_version` was **3.11** on a 3.13 venv — mypy died on a numpy
+stub and checked **0 files**. Now 3.13, checks 12, and immediately caught a real unpack bug.
+1.4 done: `sut/__init__.py` exposes `get_sut()` (reads `$GUARDRAIL_SUT`, defaults **mock** —
+a wrong default must cost $0 and download nothing) + `scripts/ask.py`. **Phase 1 gate passes:**
+`scripts/ask.py "..."` returns a real generation; `--sut mock|mlx` swaps the model with no
+code change; `lora` fails with an actionable message + exit 1.
+`ask.py` prints tok/s **only** above 20 output tokens — below that, tokens/latency measures
+startup overhead, not speed (a 1-token reply reported "2.0 tok/s" on a ~71 tok/s model).
+**Next:** tests for the SUT seam (all against `MockSUT`), then Phase 2.
+
+⚠️ **`mlx-lm` is 0.31.x, not 0.20.x.** Verify API against the installed package, not blogs.
+Confirmed by inspection: `load(path, adapter_path=...)` — `adapter_path` is the Phase 6 seam;
+`generate(model, tokenizer, prompt, **kw) -> str` is stateless.
 
 ⚠️ **DeepEval is 4.x, not 1.x.** Nearly every tutorial online is 1.x. Verify the custom-judge
 API against the installed package in Phase 3.1 — do not trust recalled/blog syntax.
