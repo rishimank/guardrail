@@ -1,0 +1,53 @@
+[project]
+name = "guardrailai"
+version = "0.1.0"
+description = "Automated adversarial eval framework for LLM failure modes"
+requires-python = ">=3.11"
+
+# Core deps. Deliberately does NOT include mlx-lm — see [project.optional-dependencies].
+dependencies = [
+    "deepeval>=1.0",       # eval framework + metrics + synthesizer
+    "langsmith>=0.1",      # tracing / datasets / experiments
+    "anthropic>=0.40",     # the judge
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+    "scipy>=1.14",         # Wilson score intervals (stats/)
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# mlx-lm is Apple-Silicon-only: it will NOT install on the linux/amd64 Docker image
+# or on GitHub Actions runners. Keeping it optional is what lets CI and the container
+# install this package at all. They run against MockSUT, which needs no model.
+mlx = [
+    "mlx-lm>=0.20",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/guardrail"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

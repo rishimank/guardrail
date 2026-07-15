@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && git add -A && { git diff --cached --quiet || git commit -q -m \"auto: $(date -u +%Y-%m-%dT%H:%M:%SZ)\"; } 2>/dev/null || true",
+            "statusMessage": "Auto-committing changes..."
+          }
+        ]
+      }
+    ]
+  }
+}

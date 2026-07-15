@@ -1,0 +1,34 @@
+# --- Secrets / credentials (NEVER commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+
+# --- Python ---
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Model weights (huge; re-downloaded from HuggingFace) ---
+# Qwen2.5-3B-4bit is ~1.7GB. Never in git.
+models/
+adapters/
+*.safetensors
+*.gguf
+
+# --- Eval artifacts ---
+# The response cache is a local speed/cost optimization, regenerated on demand.
+.cache/
+# Raw per-run outputs. BENCHMARKS.md is the curated, committed record — not these.
+runs/
+*.run.json
+
+# --- OS / editor noise ---
+.DS_Store
+.idea/
+.vscode/
