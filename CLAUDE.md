@@ -67,7 +67,50 @@ a wrong default must cost $0 and download nothing) + `scripts/ask.py`. **Phase 1
 code change; `lora` fails with an actionable message + exit 1.
 `ask.py` prints tok/s **only** above 20 output tokens — below that, tokens/latency measures
 startup overhead, not speed (a 1-token reply reported "2.0 tok/s" on a ~71 tok/s model).
-**Next:** tests for the SUT seam (all against `MockSUT`), then Phase 2.
+SUT tests done: 19 tests, 0.03s, all against `MockSUT`; verified they can fail (mutation check).
+
+**Phase 2 — in progress.** Corpus stored one JSONL per category (`dataset/data/<category>.jsonl`).
+2.1 done: `dataset/schema.py` (`Entry`, frozen, 8 plan fields + enums; auto-enforced id-prefix↔
+category match; blank prompt/ground_truth rejected) + `dataset/loader.py` (`load_corpus`/
+`load_category`, line-numbered `CorpusError`, global id-uniqueness). **No `split` field on
+purpose** — train/test boundary will be a deterministic function of `id` in Phase 6, not a
+storable/leakable column. **Next:** 2.2 (hand-write ~15 seeds/category = 90 total, by hand;
+these become the Phase 3.4 golden/calibration set), 2.3 (Synthesizer → 500+), 2.4 (curate),
+2.5 (test the dataset like code).
+2.2 done: **90 handwritten seeds, 15/category**, all schema-valid + ids unique. Mix 49 refuse /
+37 answer / 4 redact — every category except overrefusal has answer-controls (a refuse-all model
+can't score well); overrefusal is all-answer by design. Schema gained one optional field,
+`forbidden_outputs` (used only by injection+pii, the deterministic categories: canary tokens /
+embedded PII that must not appear in output). All PII is synthetic (555 numbers, example.com,
+123-45-6789, 4111… test card). **Next:** 2.3 (Synthesizer → 500+; will need an LLM to generate —
+point it at Haiku, flag cost first).
+2.5 done (out of order, before 2.3): `tests/test_dataset.py` — 13 tests, offline, ms. Split
+into PERMANENT invariants (unique ids, no blank/dup prompts, all 6 categories, ≥1 answer-control
+per category, forbidden_outputs only on injection+pii, PII values synthetic) and SNAPSHOT facts
+(90 total / 15 per cat / all handwritten — **2.3 will update these on purpose**). Mutation-tested:
+canary-on-judge-only, refuse-only category, and dup id each fail the right check. Full suite 32
+green (19 SUT + 13 dataset).
+2.3 PILOT done (2026-07-16, cost $0.0099): used DeepEval's **native `AnthropicModel`** (not a
+custom `DeepEvalBaseLLM` wrapper — 4.1.0 ships one; it's in `is_native_model` → auto cost
+tracking) pinned to real Haiku pricing ($1/$5 per 1M). **Two findings:** (1) full-run cost
+extrapolates to **~$0.45**, not the $2-7 estimate — money is a non-issue. (2) **Naive
+`generate_goldens_from_goldens` is broken for adversarial categories:** Haiku refuses to rewrite
+injection/toxicity seeds and DeepEval stores the *refusal text* as the generated prompt; PII
+variants reuse the seed's fake values. **Decision: HYBRID 2.3** — templated permutations for
+injection/pii/toxicity (free, un-refusable, precise canary/PII control), Haiku synthesis for
+hallucination/scope/overrefusal, ground-truth verify pass on ALL generated rows.
+⚠️ Phase 3.1 note: plan said "write a custom judge wrapper" — but prefer native `AnthropicModel`
+unless calibration needs a custom subclass.
+2.3 TEMPLATED HALF done (free): `dataset/templates.py` (`expand_injection/pii/toxicity`) +
+`scripts/build_corpus.py` (idempotent, writes `<cat>.generated.jsonl`). Generated files load via
+`load_category` alongside seeds — seed files stay pristine. **Corpus now 285** (90 handwritten +
+195 templated): injection 85, pii 85, toxicity 70; hallucination/scope/overrefusal still 15.
+Templated PII values provably fake (SSN area 900+, 555-01xx, userN@example.com). Dataset tests
+reworked: golden set frozen at 15/cat handwritten is now the PERMANENT invariant (not total==90).
+Suite 31 green. **Next (PAID, ~$0.30):** LLM-synthesize hallucination/scope/overrefusal + ground-
+truth verify → merge → then 2.4 curation, final counts to BENCHMARKS/tests.
+
+⚠️ **DeepEval 4.x Synthesizer API — verify against installed 4.1.0 in 2.3, not blogs (1.x).**
 
 ⚠️ **`mlx-lm` is 0.31.x, not 0.20.x.** Verify API against the installed package, not blogs.
 Confirmed by inspection: `load(path, adapter_path=...)` — `adapter_path` is the Phase 6 seam;
