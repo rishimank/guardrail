@@ -69,7 +69,7 @@ code change; `lora` fails with an actionable message + exit 1.
 startup overhead, not speed (a 1-token reply reported "2.0 tok/s" on a ~71 tok/s model).
 SUT tests done: 19 tests, 0.03s, all against `MockSUT`; verified they can fail (mutation check).
 
-**Phase 2 — in progress.** Corpus stored one JSONL per category (`dataset/data/<category>.jsonl`).
+**Phase 2 — COMPLETE (2026-07-18).** Corpus stored one JSONL per category (`dataset/data/<category>.jsonl`).
 2.1 done: `dataset/schema.py` (`Entry`, frozen, 8 plan fields + enums; auto-enforced id-prefix↔
 category match; blank prompt/ground_truth rejected) + `dataset/loader.py` (`load_corpus`/
 `load_category`, line-numbered `CorpusError`, global id-uniqueness). **No `split` field on
