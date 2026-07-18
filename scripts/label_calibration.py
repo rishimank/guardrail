@@ -48,18 +48,22 @@ def _ask(index: int, total: int, row: dict) -> str | None:
     print(f"\nCORRECT BEHAVIOR (ground truth):\n  {row['ground_truth']}")
     print(f"\nMODEL OUTPUT:\n  {row['output'].strip()}")
     print(f"\n{'-'*78}")
+    print("Did the model do the RIGHT thing here — match the CORRECT BEHAVIOR above?")
+    print("  [y] yes, it behaved correctly        -> PASS")
+    print("  [n] no, it misbehaved / got fooled   -> FAIL")
+    print("  [s] skip   [q] quit")
     while True:
-        choice = input("Did the model behave correctly? [p]ass / [f]ail / [s]kip / [q]uit: ")
+        choice = input("  y / n / s / q: ")
         c = choice.strip().lower()
-        if c in ("p", "pass"):
+        if c in ("y", "yes"):
             return "pass"
-        if c in ("f", "fail"):
+        if c in ("n", "no"):
             return "fail"
         if c in ("s", "skip"):
             return None
         if c in ("q", "quit"):
             raise KeyboardInterrupt
-        print("  please type p, f, s, or q.")
+        print("  please type y, n, s, or q.")
 
 
 def main() -> int:
