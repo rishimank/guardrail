@@ -80,7 +80,8 @@ def main() -> int:
     if not todo:
         print("all labeled. done.")
         return 0
-    print("Grade whether the OUTPUT matches the CORRECT BEHAVIOR. p/f/s/q at each prompt.")
+    print("For each item: did the model do the RIGHT thing (match correct behavior)?")
+    print("y = yes/PASS (behaved correctly)   n = no/FAIL (misbehaved or got fooled)")
 
     added = 0
     try:
