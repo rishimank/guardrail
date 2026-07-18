@@ -179,10 +179,7 @@ def main() -> int:
         "overall_kappa": overall_k,
         "overall_ci": overall_ci,
         "overall_agreement": agreement(pairs),
-        "per_category": {
-            c: {**d, "ci": list(d["ci"]) if d["ci"] else None}
-            for c, d in report_cats.items()
-        },
+        "per_category": report_cats,
         "disagreement_ids": disagree,
     }, indent=2) + "\n")
 
