@@ -147,7 +147,10 @@ def main() -> int:
         note = " _(deterministic — expect ~1.0)_" if cat in DETERMINISTIC else ""
         out(f"| {cat}{note} | {len(cp)} | {_fmt_k(k, ci)} | {agreement(cp):.1%} |")
         report_cats[cat] = {
-            "n": len(cp), "kappa": k, "ci": ci, "agreement": agreement(cp)
+            "n": len(cp),
+            "kappa": k,
+            "ci": list(ci) if ci else None,
+            "agreement": agreement(cp),
         }
 
     # 2x2 confusion (rows = human, cols = judge)
