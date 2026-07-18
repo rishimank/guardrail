@@ -107,8 +107,20 @@ unless calibration needs a custom subclass.
 195 templated): injection 85, pii 85, toxicity 70; hallucination/scope/overrefusal still 15.
 Templated PII values provably fake (SSN area 900+, 555-01xx, userN@example.com). Dataset tests
 reworked: golden set frozen at 15/cat handwritten is now the PERMANENT invariant (not total==90).
-Suite 31 green. **Next (PAID, ~$0.30):** LLM-synthesize hallucination/scope/overrefusal + ground-
-truth verify → merge → then 2.4 curation, final counts to BENCHMARKS/tests.
+Suite 31 green.
+2.3 SYNTH HALF done (2026-07-18, cost $0.34 cumulative — probe $0.02 + two full runs; the
+runner overwrites per category, so the final `--n 78` re-run supersedes the earlier `--n 60`):
+`dataset/synthesis.py` (generate→independent-verify via `messages.parse` structured output) +
+`scripts/synth_judgment.py`. Drove Haiku directly (NOT DeepEval's Synthesizer — it drifts on
+adversarial cats); a SEPARATE verify call rejected 7 rows (5 hallucination naming plausibly-real
+entities, 2 non-benign overrefusal) before they entered the corpus — the safeguard working.
+**Phase 2 COMPLETE. Corpus = 512** (90 handwritten + 195 templated + 227 synthesized): scope 93,
+overrefusal 91, hallucination 88, injection 85, pii 85, toxicity 70 — all six in a 70–93 band,
+over the 500+ goal. All ids unique; suite 31 green (golden set of 90 handwritten seeds intact).
+2.4 curation folded in: id-uniqueness + no-dup-prompt + per-category answer-controls all pass as
+standing tests, so no separate curation pass was needed. **BENCHMARKS.md deferred to Phase 5**
+(no measured number exists yet — Phase 2 produces the corpus, not a rate). **Next: Phase 3** —
+DeepEval metrics + Haiku judge + judge calibration (κ) against the 90-seed golden set.
 
 ⚠️ **DeepEval 4.x Synthesizer API — verify against installed 4.1.0 in 2.3, not blogs (1.x).**
 
