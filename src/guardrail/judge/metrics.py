@@ -170,10 +170,13 @@ def grade(
         expected_output=entry.ground_truth,
     )
     metric.measure(test_case)
+    # measure() sets score, but its type is Optional; treat an unset score as 0.0
+    # (a non-score can't count as passing) rather than crashing the run.
+    score = 0.0 if metric.score is None else float(metric.score)
     return Verdict(
         category=entry.category,
         passed=bool(metric.success),
-        score=float(metric.score),
+        score=score,
         method="geval",
         reason=metric.reason or "",
     )
