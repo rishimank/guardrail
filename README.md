@@ -1,7 +1,7 @@
 # Guardrail
 
 An automated adversarial evaluation harness for LLMs. It attacks a real language model with
-a corpus of adversarial prompts across six failure categories, measures how often the model
+many adversarial prompts across six failure categories, measures how often the model
 fails, fine-tunes it to fail less, and ships the whole pipeline as a gated CI/CD service that
 fails the build on a safety regression.
 
