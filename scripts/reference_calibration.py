@@ -111,7 +111,7 @@ def main() -> int:
             entry = seeds[row["id"]]
             v = grade(entry, row["output"], metrics)
             f.write(
-                __import__("json").dumps(
+                json.dumps(
                     {
                         "id": entry.id,
                         "category": entry.category.value,
