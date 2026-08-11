@@ -112,19 +112,36 @@ def _fmt_k(k: float | None, ci: tuple[float, float] | None) -> str:
 
 
 def main() -> int:
-    human = {r["id"]: r["human_label"] for r in _read_jsonl(LABELS_PATH)}
+    # Two raters, joined by id. Rater A is the "ground truth" being compared against
+    # (human labels by default, or the reference judge's verdicts); rater B is always
+    # the production Haiku judge. Defaults reproduce the original human-vs-judge run;
+    # the reference-judge mode just repoints rater A and renames the columns.
+    parser = argparse.ArgumentParser(description="Cohen's kappa between two raters.")
+    parser.add_argument("--rater-a-path", default=str(LABELS_PATH))
+    parser.add_argument("--rater-a-field", default="human_label")
+    parser.add_argument("--rater-a-name", default="human")
+    parser.add_argument("--rater-b-name", default="judge")
+    parser.add_argument(
+        "--out-prefix",
+        default="report",
+        help="write <prefix>.md and <prefix>.json in calibration/ (default: report)",
+    )
+    args = parser.parse_args()
+    name_a, name_b = args.rater_a_name, args.rater_b_name
+
+    rater_a = {r["id"]: r[args.rater_a_field] for r in _read_jsonl(Path(args.rater_a_path))}
     verdicts = {r["id"]: r for r in _read_jsonl(VERDICTS_PATH)}
-    ids = sorted(set(human) & set(verdicts))
+    ids = sorted(set(rater_a) & set(verdicts))
     if not ids:
-        print("no overlap between human labels and judge verdicts yet.")
-        print(f"  human-labeled: {len(human)} | judged: {len(verdicts)}")
+        print(f"no overlap between {name_a} labels and {name_b} verdicts yet.")
+        print(f"  {name_a}-labeled: {len(rater_a)} | {name_b}: {len(verdicts)}")
         return 1
 
-    pairs = [(human[i], verdicts[i]["judge_label"]) for i in ids]
+    pairs = [(rater_a[i], verdicts[i]["judge_label"]) for i in ids]
     by_cat: dict[str, list[tuple[str, str]]] = {}
     for i in ids:
         by_cat.setdefault(verdicts[i]["category"], []).append(
-            (human[i], verdicts[i]["judge_label"])
+            (rater_a[i], verdicts[i]["judge_label"])
         )
 
     overall_k = kappa(pairs)
@@ -133,7 +150,8 @@ def main() -> int:
     lines: list[str] = []
     out = lines.append
     out("# Phase 3.4 — Judge calibration report\n")
-    out(f"Items with both a human label and a judge verdict: **{len(pairs)}**\n")
+    out(f"Raters: **{name_a}** vs **{name_b}**")
+    out(f"Items with a label from both: **{len(pairs)}**\n")
     out(f"**Overall Cohen's κ:** {_fmt_k(overall_k, overall_ci)}")
     out(f"**Raw agreement:** {agreement(pairs):.1%}\n")
 
@@ -154,28 +172,32 @@ def main() -> int:
             "agreement": agreement(cp),
         }
 
-    # 2x2 confusion (rows = human, cols = judge)
-    conf = Counter((h, j) for h, j in pairs)
-    out("\n## Confusion (rows = human, cols = judge)\n")
-    out("| human ↓ / judge → | pass | fail |")
+    # 2x2 confusion (rows = rater A, cols = rater B)
+    conf = Counter((a, b) for a, b in pairs)
+    out(f"\n## Confusion (rows = {name_a}, cols = {name_b})\n")
+    out(f"| {name_a} ↓ / {name_b} → | pass | fail |")
     out("|---|---|---|")
-    for h in LABELS:
-        out(f"| **{h}** | {conf[(h, 'pass')]} | {conf[(h, 'fail')]} |")
+    for a in LABELS:
+        out(f"| **{a}** | {conf[(a, 'pass')]} | {conf[(a, 'fail')]} |")
 
     # disagreements — the actionable part
-    disagree = [i for i in ids if human[i] != verdicts[i]["judge_label"]]
+    disagree = [i for i in ids if rater_a[i] != verdicts[i]["judge_label"]]
     out(f"\n## Disagreements ({len(disagree)})\n")
     if not disagree:
-        out("_None — judge matched human on every labeled item._")
+        out(f"_None — {name_b} matched {name_a} on every item._")
     for i in disagree:
         v = verdicts[i]
-        out(f"- **{i}** ({v['category']}): human=`{human[i]}` judge=`{v['judge_label']}` "
-            f"[{v['method']}, score {v['score']:.2f}]")
-        out(f"  - judge reason: {v['reason'][:200]}")
+        out(f"- **{i}** ({v['category']}): {name_a}=`{rater_a[i]}` "
+            f"{name_b}=`{v['judge_label']}` [{v['method']}, score {v['score']:.2f}]")
+        out(f"  - {name_b} reason: {v['reason'][:200]}")
 
     report_md = "\n".join(lines) + "\n"
-    (CAL / "report.md").write_text(report_md)
-    (CAL / "report.json").write_text(json.dumps({
+    md_path = CAL / f"{args.out_prefix}.md"
+    json_path = CAL / f"{args.out_prefix}.json"
+    md_path.write_text(report_md)
+    json_path.write_text(json.dumps({
+        "rater_a": name_a,
+        "rater_b": name_b,
         "n": len(pairs),
         "overall_kappa": overall_k,
         "overall_ci": overall_ci,
@@ -185,7 +207,7 @@ def main() -> int:
     }, indent=2) + "\n")
 
     print(report_md)
-    print(f"written -> {CAL/'report.md'} and report.json")
+    print(f"written -> {md_path} and {json_path.name}")
     return 0
 
 
