@@ -34,6 +34,7 @@ PSEUDOCODE
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -49,13 +50,18 @@ from guardrail.judge.metrics import (  # noqa: E402
     build_metrics,
     grade,
 )
-from scripts.judge_calibration import _read_jsonl  # noqa: E402
 
 CAL = Path(__file__).resolve().parent.parent / "calibration"
 RESP_PATH = CAL / "responses.jsonl"
 REF_VERDICTS_PATH = CAL / "reference_verdicts.jsonl"
 
 DEFAULT_REFERENCE_MODEL = "claude-opus-4-8"
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    return [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
 
 
 def main() -> int:
