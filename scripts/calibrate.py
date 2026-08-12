@@ -160,7 +160,11 @@ def main() -> int:
     out = lines.append
     out("# Phase 3.4 — Judge calibration report\n")
     out(f"Raters: **{name_a}** vs **{name_b}**")
-    out(f"Items with a label from both: **{len(pairs)}**\n")
+    out(f"Items both raters scored (pass/fail): **{len(pairs)}**")
+    if excluded:
+        out(f"Excluded (a rater returned no verdict, e.g. refused): "
+            f"**{len(excluded)}** — {', '.join(excluded)}")
+    out("")
     out(f"**Overall Cohen's κ:** {_fmt_k(overall_k, overall_ci)}")
     out(f"**Raw agreement:** {agreement(pairs):.1%}\n")
 
