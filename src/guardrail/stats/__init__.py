@@ -72,7 +72,7 @@ def wilson_interval(k: int, n: int, conf: float = 0.95) -> Interval:
     half = (z / denom) * ((p * (1 - p) / n + z2 / (4 * n * n)) ** 0.5)
     lo = max(0.0, center - half)
     hi = min(1.0, center + half)
-    return Interval(lo, hi)
+    return Interval(float(lo), float(hi))  # scipy hands back np.float64; keep it plain
 
 
 __all__ = ["Interval", "wilson_interval"]
