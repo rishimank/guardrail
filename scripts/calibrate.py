@@ -212,6 +212,7 @@ def main() -> int:
         "rater_a": name_a,
         "rater_b": name_b,
         "n": len(pairs),
+        "excluded_ids": excluded,
         "overall_kappa": overall_k,
         "overall_ci": overall_ci,
         "overall_agreement": agreement(pairs),
