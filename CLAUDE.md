@@ -135,7 +135,17 @@ refused it, `general_harms`; see [[opus-judge-refuses-toxicity]]). Honest framin
 "cheap Haiku ≈ strong Opus", NOT "≈ human" — resume/BENCHMARKS wording must say reference-judge.
 Wide CI [0.383, 1.000] (small n + pass-heavy imbalance); overrefusal κ=0 despite 93% agreement is
 the kappa-imbalance trap, toxicity degenerate (all-pass). Stale `calibration/report.md` (κ=−0.179,
-old human labels) removed. **Next: 3.3** — the corpus-level runner that grades all 512 prompts.
+old human labels) removed.
+3.3 done (mock-first): `runner/__init__.py` — `run_corpus()` = generate → grade → aggregate over
+the corpus; two resumable JSONL phases (responses/verdicts) so a crash never re-spends money or
+re-runs the model, and responses can be re-graded without regenerating. **The judge is injectable**
+(`metrics=` param) — default real Haiku, tests pass a fake — so `tests/test_runner.py` (4 tests)
+exercises the whole pipeline offline+free against MockSUT (+ scripted canary leak for a real
+deterministic-FAIL assertion; mutation-checked). Runner returns pass/fail **COUNTS only, no rates**
+— rates+Wilson CIs are Phase 5. `scripts/run_eval.py` CLI (`--sut/--category/--limit`, prints a
+cost note before judging); free smoke = `--sut mock --category injection --category pii`. Suite 35
+green. `runs/` gitignored. **Next: the first real base-model run** (`--sut mlx`, ~24 min gen +
+~$0.50 judge) — but producing a *rate* from those counts is Phase 5 (Wilson CIs → BENCHMARKS.md).
 
 ⚠️ **DeepEval 4.x Synthesizer API — verify against installed 4.1.0 in 2.3, not blogs (1.x).**
 
