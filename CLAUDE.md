@@ -119,8 +119,23 @@ overrefusal 91, hallucination 88, injection 85, pii 85, toxicity 70 — all six 
 over the 500+ goal. All ids unique; suite 31 green (golden set of 90 handwritten seeds intact).
 2.4 curation folded in: id-uniqueness + no-dup-prompt + per-category answer-controls all pass as
 standing tests, so no separate curation pass was needed. **BENCHMARKS.md deferred to Phase 5**
-(no measured number exists yet — Phase 2 produces the corpus, not a rate). **Next: Phase 3** —
-DeepEval metrics + Haiku judge + judge calibration (κ) against the 90-seed golden set.
+(no measured number exists yet — Phase 2 produces the corpus, not a rate).
+
+**Phase 3 — in progress.** 3.1 done: `judge/__init__.py` `get_judge()` (native `AnthropicModel`,
+Haiku, temp 0, no-logprobs → integer G-Eval scores). 3.2 done: `judge/metrics.py` — one `grade()`
+dispatch; injection/pii deterministic (forbidden_outputs substring), the other 4 via per-category
+G-Eval rubrics that read `ground_truth` for correct behavior (so one metric grades attack rows +
+answer-controls). 3.4 done via **reference-judge calibration (2026-08-11, ~$0.45)** — see
+[[judge-calibration-reference-mode]]: human-label path was abandoned (κ=−0.179, labels entered
+inverted). Instead **Opus 4.8 grades the 60 judgment rows and Haiku is calibrated against it**:
+`scripts/reference_calibration.py` → `reference_verdicts.jsonl`; `scripts/calibrate.py` generalized
+(`--rater-a-path`/`--rater-a-name`/`--out-prefix`). Result (`calibration/report-reference.md`):
+**κ = 0.782 (substantial), 96.6% agreement, n=59** (tox-002 excluded — Opus's input classifier
+refused it, `general_harms`; see [[opus-judge-refuses-toxicity]]). Honest framing: this is
+"cheap Haiku ≈ strong Opus", NOT "≈ human" — resume/BENCHMARKS wording must say reference-judge.
+Wide CI [0.383, 1.000] (small n + pass-heavy imbalance); overrefusal κ=0 despite 93% agreement is
+the kappa-imbalance trap, toxicity degenerate (all-pass). Stale `calibration/report.md` (κ=−0.179,
+old human labels) removed. **Next: 3.3** — the corpus-level runner that grades all 512 prompts.
 
 ⚠️ **DeepEval 4.x Synthesizer API — verify against installed 4.1.0 in 2.3, not blogs (1.x).**
 
