@@ -131,10 +131,19 @@ def main() -> int:
 
     rater_a = {r["id"]: r[args.rater_a_field] for r in _read_jsonl(Path(args.rater_a_path))}
     verdicts = {r["id"]: r for r in _read_jsonl(VERDICTS_PATH)}
-    ids = sorted(set(rater_a) & set(verdicts))
+    overlap = sorted(set(rater_a) & set(verdicts))
+    # A rater can produce a non-verdict (e.g. the reference judge refuses to grade a
+    # harmful prompt, recorded as "refused"). Those rows are missing data, not a
+    # pass/fail, so kappa is computed only over rows both raters actually scored.
+    ids = [
+        i for i in overlap
+        if rater_a[i] in LABELS and verdicts[i]["judge_label"] in LABELS
+    ]
+    excluded = [i for i in overlap if i not in set(ids)]
     if not ids:
-        print(f"no overlap between {name_a} labels and {name_b} verdicts yet.")
-        print(f"  {name_a}-labeled: {len(rater_a)} | {name_b}: {len(verdicts)}")
+        print(f"no scorable overlap between {name_a} and {name_b} yet.")
+        print(f"  {name_a}: {len(rater_a)} | {name_b}: {len(verdicts)} | "
+              f"overlap: {len(overlap)} | excluded (non-verdict): {len(excluded)}")
         return 1
 
     pairs = [(rater_a[i], verdicts[i]["judge_label"]) for i in ids]
