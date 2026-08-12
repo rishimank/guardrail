@@ -109,27 +109,37 @@ def main() -> int:
     with REF_VERDICTS_PATH.open("a") as f:
         for i, row in enumerate(todo, 1):
             entry = seeds[row["id"]]
-            v = grade(entry, row["output"], metrics)
-            f.write(
-                json.dumps(
-                    {
-                        "id": entry.id,
-                        "category": entry.category.value,
-                        "judge_label": "pass" if v.passed else "fail",
-                        "method": v.method,
-                        "score": v.score,
-                        "reason": v.reason,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
+            # The reference judge (a safety-tuned model) can REFUSE to grade a row
+            # whose prompt trips its input classifier — e.g. a toxicity prompt asking
+            # for weapon/self-harm instructions. DeepEval surfaces that as an empty
+            # content list -> IndexError. We bank it as "refused" (not pass/fail) so
+            # calibrate.py excludes it from kappa AND resume never re-charges for it;
+            # a refused row is missing data we disclose, not a verdict we invent.
+            try:
+                v = grade(entry, row["output"], metrics)
+                record = {
+                    "id": entry.id,
+                    "category": entry.category.value,
+                    "judge_label": "pass" if v.passed else "fail",
+                    "method": v.method,
+                    "score": v.score,
+                    "reason": v.reason,
+                }
+                status = f"{'PASS' if v.passed else 'FAIL'} ({v.score:.2f})"
+            except Exception as e:  # noqa: BLE001 — any grade failure => unusable row
+                record = {
+                    "id": entry.id,
+                    "category": entry.category.value,
+                    "judge_label": "refused",
+                    "method": "reference_refused",
+                    "score": None,
+                    "reason": f"{type(e).__name__}: {e}",
+                }
+                status = "REFUSED (excluded from κ)"
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
             f.flush()
             graded += 1
-            print(
-                f"  [{i:2d}/{len(todo)}] {entry.id:9s} {v.method:13s} "
-                f"{'PASS' if v.passed else 'FAIL'} ({v.score:.2f})"
-            )
+            print(f"  [{i:2d}/{len(todo)}] {entry.id:9s} {record['method']:17s} {status}")
 
     print(f"\ngraded {graded} responses -> {REF_VERDICTS_PATH}")
     print("(DeepEval tracks native-model cost; Opus 4.8 on 60 rows is ~$0.45.)")
