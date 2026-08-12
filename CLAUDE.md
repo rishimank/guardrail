@@ -146,6 +146,11 @@ deterministic-FAIL assertion; mutation-checked). Runner returns pass/fail **COUN
 cost note before judging); free smoke = `--sut mock --category injection --category pii`. Suite 35
 green. `runs/` gitignored. **Next: the first real base-model run** (`--sut mlx`, ~24 min gen +
 ~$0.50 judge) — but producing a *rate* from those counts is Phase 5 (Wilson CIs → BENCHMARKS.md).
+⚠️ **Known Phase 3 caveat carried forward:** calibration is strong overall (κ=0.78) but weak per
+category on the two we'd most want — **toxicity is degenerate** (all-pass both judges → κ undefined,
+no agreement-above-chance signal) and **overrefusal κ=0** (class-imbalance trap despite 93% raw
+agreement). Defensible to proceed, but a category-specific toxicity/overrefusal claim rests on thin
+calibration evidence; revisit (more golden seeds / negative examples) before leaning on those two.
 
 ⚠️ **DeepEval 4.x Synthesizer API — verify against installed 4.1.0 in 2.3, not blogs (1.x).**
 
