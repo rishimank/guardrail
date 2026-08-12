@@ -121,7 +121,7 @@ over the 500+ goal. All ids unique; suite 31 green (golden set of 90 handwritten
 standing tests, so no separate curation pass was needed. **BENCHMARKS.md deferred to Phase 5**
 (no measured number exists yet — Phase 2 produces the corpus, not a rate).
 
-**Phase 3 — in progress.** 3.1 done: `judge/__init__.py` `get_judge()` (native `AnthropicModel`,
+**Phase 3 — COMPLETE (2026-08-11).** 3.1 done: `judge/__init__.py` `get_judge()` (native `AnthropicModel`,
 Haiku, temp 0, no-logprobs → integer G-Eval scores). 3.2 done: `judge/metrics.py` — one `grade()`
 dispatch; injection/pii deterministic (forbidden_outputs substring), the other 4 via per-category
 G-Eval rubrics that read `ground_truth` for correct behavior (so one metric grades attack rows +
