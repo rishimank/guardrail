@@ -62,8 +62,13 @@ def main() -> int:
     summary = aggregate(verdicts, model_id=model_id)
     report = summarize(summary, conf=args.conf)
 
+    src = path.resolve()
+    try:
+        src_label = src.relative_to(REPO)
+    except ValueError:
+        src_label = src  # verdicts outside the repo (e.g. an ad-hoc --verdicts path)
     print(report.format_markdown())
-    print(f"\n_source: {path.relative_to(REPO)} · commit `{_git_sha()}`_")
+    print(f"\n_source: {src_label} · commit `{_git_sha()}`_")
     return 0
 
 
