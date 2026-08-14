@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+"""report.py — render a banked run's verdicts as the BENCHMARKS.md rates table (Phase 5.5).
+
+Reads runs/<sut>/verdicts.jsonl (produced by run_eval.py), rolls it up to per-category
+pass/fail COUNTS via the runner's `aggregate`, then converts those to FAILURE RATES with
+95% Wilson CIs via `report.summarize`, and prints the markdown table. This is a $0,
+offline, repeatable step: it never calls the model or the judge — it only re-reads
+verdicts already banked. Run it as many times as you like.
+
+The commit SHA is printed alongside so the table can be pasted into BENCHMARKS.md with
+its provenance (method + n + CI + SHA) intact, as the honesty note requires.
+
+PSEUDOCODE
+    1. Parse --sut (default mlx) / --verdicts (explicit path) / --conf.
+    2. Read verdicts.jsonl; pull model_id from the rows.
+    3. aggregate(verdicts) -> RunSummary (counts).
+    4. summarize(summary, conf) -> RunReport (rates + Wilson CIs).
+    5. Print format_markdown() + the current commit SHA.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from guardrail.report import summarize
+from guardrail.runner import aggregate
+
+REPO = Path(__file__).resolve().parent.parent
+
+
+def _git_sha() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, text=True
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sut", default="mlx", help="reads runs/<sut>/verdicts.jsonl")
+    parser.add_argument("--verdicts", default=None, help="explicit verdicts.jsonl path")
+    parser.add_argument("--conf", type=float, default=0.95, help="CI confidence (0-1)")
+    args = parser.parse_args()
+
+    path = Path(args.verdicts) if args.verdicts else REPO / "runs" / args.sut / "verdicts.jsonl"
+    if not path.exists():
+        print(f"no verdicts at {path} — run scripts/run_eval.py first.")
+        return 1
+
+    verdicts = [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
+    if not verdicts:
+        print(f"{path} is empty.")
+        return 1
+
+    model_id = next((v.get("model_id", "") for v in verdicts if v.get("model_id")), args.sut)
+    summary = aggregate(verdicts, model_id=model_id)
+    report = summarize(summary, conf=args.conf)
+
+    print(report.format_markdown())
+    print(f"\n_source: {path.relative_to(REPO)} · commit `{_git_sha()}`_")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
