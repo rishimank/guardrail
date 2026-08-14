@@ -70,8 +70,11 @@ def wilson_interval(k: int, n: int, conf: float = 0.95) -> Interval:
     denom = 1 + z2 / n
     center = (p + z2 / (2 * n)) / denom
     half = (z / denom) * ((p * (1 - p) / n + z2 / (4 * n * n)) ** 0.5)
-    lo = max(0.0, center - half)
-    hi = min(1.0, center + half)
+    # The endpoints at k=0 (lower=0) and k=n (upper=1) are analytically exact, but the
+    # arithmetic lands ~1e-16 off — enough that p would fall outside its own interval.
+    # Snap those two; clamp the rest against float overshoot.
+    lo = 0.0 if k == 0 else max(0.0, center - half)
+    hi = 1.0 if k == n else min(1.0, center + half)
     return Interval(float(lo), float(hi))  # scipy hands back np.float64; keep it plain
 
 
