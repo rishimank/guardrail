@@ -56,25 +56,61 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s.strip().lower())
 
 
+def _existing_generated(category: Category) -> list[Entry]:
+    """Rows already in <category>.generated.jsonl, or [] if the file is absent."""
+    path = generated_path(category)
+    if not path.exists() or not path.read_text().strip():
+        return []
+    return [e for e in load_category(category) if e.source is Source.SYNTHESIZED]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=6, help="items to generate per category")
+    ap.add_argument(
+        "--category",
+        action="append",
+        choices=[c.value for c in JUDGMENT],
+        help="repeatable; default = all three judgment categories",
+    )
+    ap.add_argument(
+        "--append",
+        action="store_true",
+        help="keep existing generated rows and add after them (REQUIRED once a baseline "
+             "has been measured — the default overwrites and invalidates runs/)",
+    )
     args = ap.parse_args()
+
+    targets = [Category(c) for c in args.category] if args.category else list(JUDGMENT)
 
     client = Anthropic()
     meter = CostMeter()
-    print(f"synthesizing {args.n}/category for {[c.value for c in JUDGMENT]} (paid)...\n")
+    mode = "APPEND" if args.append else "OVERWRITE"
+    print(f"synthesizing {args.n}/category for {[c.value for c in targets]} "
+          f"({mode}, paid)...\n")
 
-    for category in JUDGMENT:
-        seeds = load_category(category)
-        seed_prompts = {_norm(e.prompt) for e in seeds}
+    for category in targets:
+        # Seeds only (hand-authored) drive the exemplars; existing generated rows are
+        # carried forward untouched in append mode so their ids stay bound to their
+        # prompts — that binding is what makes the banked baseline in runs/ still valid.
+        seeds = [e for e in load_category(category) if e.source is not Source.SYNTHESIZED]
+        carried = _existing_generated(category) if args.append else []
+        seed_prompts = {_norm(e.prompt) for e in seeds} | {_norm(e.prompt) for e in carried}
 
-        items = generate(client, category, seeds, args.n, meter)
+        # Continue numbering after the highest id currently in use, so a new row can never
+        # collide with (and silently overwrite) a measured one.
+        idx = 16
+        for e in carried:
+            suffix = int(e.id.rsplit("-", 1)[1])
+            idx = max(idx, suffix + 1)
+
+        avoid = [e.prompt for e in seeds] + [e.prompt for e in carried]
+        items = generate(client, category, seeds, args.n, meter, avoid=avoid)
         verdicts = {v.index: v for v in verify(client, category, items, meter)}
 
-        kept: list[Entry] = []
+        kept: list[Entry] = list(carried)
+        added = 0
         seen: set[str] = set()
-        idx = 16
         for i, it in enumerate(items):
             v = verdicts.get(i)
             norm = _norm(it.prompt)
