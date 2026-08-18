@@ -38,6 +38,7 @@ MODEL = "claude-haiku-4-5"
 COST_IN = 1e-6
 COST_OUT = 5e-6
 BATCH = 12  # items requested per generation call
+VERIFY_CHUNK = 40  # items verified per call; see verify() on why this is a correctness bound
 
 
 class GenItem(BaseModel):
