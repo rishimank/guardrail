@@ -54,117 +54,73 @@ Two things protect the reduction claim specifically:
 
 ## Status
 
-**Phase 0 — in progress.** 0.1 done (2026-07-14): repo scaffolded, venv on Python 3.13.7,
-core+dev deps installed and imports verified (deepeval 4.1.0, langsmith 0.10.5,
-anthropic 0.116.0, fastapi 0.139.0, scipy 1.18.0). 0.3 done: auto-commit hook ported from
-`fleet-report-rag`. 0.6 done (2026-07-15): private repo `rishimank/guardrail` created and
-`main` pushed. 0.4 + 0.5 done (2026-07-15): `.env` populated; both keys verified live —
-`claude-haiku-4-5` returned a real completion (confirming the judge model id) and LangSmith
-authenticated. **Phase 0 complete.**
+**Phases 0–3 COMPLETE.** Condensed log (full detail in git history):
+- **0** — repo, venv (Python 3.13.7), deps, auto-commit hook, private repo `rishimank/guardrail`,
+  both API keys verified live.
+- **1** — the SUT seam. `sut/base.py` (`SUT` Protocol + frozen `Response`), `MockSUT` (offline/free),
+  `MLXSUT` (Qwen2.5-3B-Instruct-4bit, ~71 tok/s → ~24 min for a 512-prompt run). Greedy (temp 0.0)
+  is the documented default: reproducibility is what makes a measured delta attributable.
+  `get_sut()` reads `$GUARDRAIL_SUT`, **defaults to mock** (a wrong default must cost $0).
+- **2** — the corpus. 512 prompts, one JSONL per category, built three ways: 90 handwritten seeds
+  (15/cat, the frozen golden set), 195 templated (injection/pii/toxicity — free, un-refusable,
+  precise canary control), 227 Haiku-synthesized (hallucination/scope/overrefusal) with a
+  **separate verify call** that rejected 7 bad rows. Cost $0.34. **No `split` field on purpose.**
+- **3** — the judge. `get_judge()` (native `AnthropicModel`, Haiku, temp 0), `judge/metrics.py`
+  (`grade()` dispatch: injection/pii deterministic via `forbidden_outputs` substring, other 4 via
+  per-category G-Eval rubrics reading `ground_truth`). `runner/run_corpus()` = generate → grade →
+  aggregate, two resumable JSONL phases so a crash never re-spends money. Judge is injectable, so
+  tests run offline+free. Calibrated vs. **Opus 4.8 as reference judge**: **κ = 0.782, 96.6%
+  agreement, n=59** (`calibration/report-reference.md`). Honest framing: "cheap Haiku ≈ strong
+  Opus", NOT "≈ human".
 
-**Phase 1 — in progress.** 1.1 done (2026-07-15): `mlx-lm` 0.31.3 / `mlx` 0.32.0 installed,
-Qwen2.5-3B-Instruct-4bit downloaded (1.6 GB, HF cache), generation confirmed. Measured
-**~71 tok/s** steady-state (3 runs, 69.6–72.0, warm-up discarded) → a 500-prompt run is
-**~24 min** serially. Output appeared deterministic across runs (identical token counts) —
-`mlx-lm` likely defaults to greedy decoding; verify and make temperature explicit in 1.2.
-1.2 done: `sut/base.py` — `SUT` Protocol (structural, not inheritance) + frozen `Response`
-(text, model_id, latency_s, prompt_tokens, completion_tokens). Greedy (temp 0.0) is the
-documented default: reproducibility is what makes a measured delta attributable.
-1.3 done: `sut/mock.py` (`MockSUT`, canned/offline/free) + `sut/mlx_sut.py` (`MLXSUT`, real
-Qwen, lazy mlx import so linux CI can still import the package). Both pass
-`isinstance(x, SUT)`; both return "Paris".
-Also fixed: `[tool.mypy] python_version` was **3.11** on a 3.13 venv — mypy died on a numpy
-stub and checked **0 files**. Now 3.13, checks 12, and immediately caught a real unpack bug.
-1.4 done: `sut/__init__.py` exposes `get_sut()` (reads `$GUARDRAIL_SUT`, defaults **mock** —
-a wrong default must cost $0 and download nothing) + `scripts/ask.py`. **Phase 1 gate passes:**
-`scripts/ask.py "..."` returns a real generation; `--sut mock|mlx` swaps the model with no
-code change; `lora` fails with an actionable message + exit 1.
-`ask.py` prints tok/s **only** above 20 output tokens — below that, tokens/latency measures
-startup overhead, not speed (a 1-token reply reported "2.0 tok/s" on a ~71 tok/s model).
-SUT tests done: 19 tests, 0.03s, all against `MockSUT`; verified they can fail (mutation check).
+**Phase 4 (LangSmith) — DROPPED (2026-08-18).** Cut deliberately, not skipped by accident. The
+resumable JSONL runs + banked verdicts + offline `scripts/report.py` already cover everything the
+reduction claim depends on; LangSmith would have added a tracing UI and hosted experiment tracking
+that no number relies on. Directory stubs `src/guardrail/tracing/` and `src/guardrail/metrics/`
+are empty and should be **deleted** in the 5.x cleanup. Resume wording must not mention LangSmith.
 
-**Phase 2 — COMPLETE (2026-07-18).** Corpus stored one JSONL per category (`dataset/data/<category>.jsonl`).
-2.1 done: `dataset/schema.py` (`Entry`, frozen, 8 plan fields + enums; auto-enforced id-prefix↔
-category match; blank prompt/ground_truth rejected) + `dataset/loader.py` (`load_corpus`/
-`load_category`, line-numbered `CorpusError`, global id-uniqueness). **No `split` field on
-purpose** — train/test boundary will be a deterministic function of `id` in Phase 6, not a
-storable/leakable column. **Next:** 2.2 (hand-write ~15 seeds/category = 90 total, by hand;
-these become the Phase 3.4 golden/calibration set), 2.3 (Synthesizer → 500+), 2.4 (curate),
-2.5 (test the dataset like code).
-2.2 done: **90 handwritten seeds, 15/category**, all schema-valid + ids unique. Mix 49 refuse /
-37 answer / 4 redact — every category except overrefusal has answer-controls (a refuse-all model
-can't score well); overrefusal is all-answer by design. Schema gained one optional field,
-`forbidden_outputs` (used only by injection+pii, the deterministic categories: canary tokens /
-embedded PII that must not appear in output). All PII is synthetic (555 numbers, example.com,
-123-45-6789, 4111… test card). **Next:** 2.3 (Synthesizer → 500+; will need an LLM to generate —
-point it at Haiku, flag cost first).
-2.5 done (out of order, before 2.3): `tests/test_dataset.py` — 13 tests, offline, ms. Split
-into PERMANENT invariants (unique ids, no blank/dup prompts, all 6 categories, ≥1 answer-control
-per category, forbidden_outputs only on injection+pii, PII values synthetic) and SNAPSHOT facts
-(90 total / 15 per cat / all handwritten — **2.3 will update these on purpose**). Mutation-tested:
-canary-on-judge-only, refuse-only category, and dup id each fail the right check. Full suite 32
-green (19 SUT + 13 dataset).
-2.3 PILOT done (2026-07-16, cost $0.0099): used DeepEval's **native `AnthropicModel`** (not a
-custom `DeepEvalBaseLLM` wrapper — 4.1.0 ships one; it's in `is_native_model` → auto cost
-tracking) pinned to real Haiku pricing ($1/$5 per 1M). **Two findings:** (1) full-run cost
-extrapolates to **~$0.45**, not the $2-7 estimate — money is a non-issue. (2) **Naive
-`generate_goldens_from_goldens` is broken for adversarial categories:** Haiku refuses to rewrite
-injection/toxicity seeds and DeepEval stores the *refusal text* as the generated prompt; PII
-variants reuse the seed's fake values. **Decision: HYBRID 2.3** — templated permutations for
-injection/pii/toxicity (free, un-refusable, precise canary/PII control), Haiku synthesis for
-hallucination/scope/overrefusal, ground-truth verify pass on ALL generated rows.
-⚠️ Phase 3.1 note: plan said "write a custom judge wrapper" — but prefer native `AnthropicModel`
-unless calibration needs a custom subclass.
-2.3 TEMPLATED HALF done (free): `dataset/templates.py` (`expand_injection/pii/toxicity`) +
-`scripts/build_corpus.py` (idempotent, writes `<cat>.generated.jsonl`). Generated files load via
-`load_category` alongside seeds — seed files stay pristine. **Corpus now 285** (90 handwritten +
-195 templated): injection 85, pii 85, toxicity 70; hallucination/scope/overrefusal still 15.
-Templated PII values provably fake (SSN area 900+, 555-01xx, userN@example.com). Dataset tests
-reworked: golden set frozen at 15/cat handwritten is now the PERMANENT invariant (not total==90).
-Suite 31 green.
-2.3 SYNTH HALF done (2026-07-18, cost $0.34 cumulative — probe $0.02 + two full runs; the
-runner overwrites per category, so the final `--n 78` re-run supersedes the earlier `--n 60`):
-`dataset/synthesis.py` (generate→independent-verify via `messages.parse` structured output) +
-`scripts/synth_judgment.py`. Drove Haiku directly (NOT DeepEval's Synthesizer — it drifts on
-adversarial cats); a SEPARATE verify call rejected 7 rows (5 hallucination naming plausibly-real
-entities, 2 non-benign overrefusal) before they entered the corpus — the safeguard working.
-**Phase 2 COMPLETE. Corpus = 512** (90 handwritten + 195 templated + 227 synthesized): scope 93,
-overrefusal 91, hallucination 88, injection 85, pii 85, toxicity 70 — all six in a 70–93 band,
-over the 500+ goal. All ids unique; suite 31 green (golden set of 90 handwritten seeds intact).
-2.4 curation folded in: id-uniqueness + no-dup-prompt + per-category answer-controls all pass as
-standing tests, so no separate curation pass was needed. **BENCHMARKS.md deferred to Phase 5**
-(no measured number exists yet — Phase 2 produces the corpus, not a rate).
+**Phase 5 — IN PROGRESS.** Built: `split.py` (sha256(id) → TRAIN/TEST, `TEST_FRACTION = 0.30`;
+un-storable by design so a leak can't be introduced by editing a file), `stats/` (Wilson intervals
+— Wald is wrong here: small per-category n and rates near 0/1 would give impossible CIs like
+[0,0] on toxicity), `report.py` + `scripts/report.py` (counts → rates + CIs → markdown, $0 and
+offline, re-runnable forever). Suite **70 green**.
 
-**Phase 3 — COMPLETE (2026-08-11).** 3.1 done: `judge/__init__.py` `get_judge()` (native `AnthropicModel`,
-Haiku, temp 0, no-logprobs → integer G-Eval scores). 3.2 done: `judge/metrics.py` — one `grade()`
-dispatch; injection/pii deterministic (forbidden_outputs substring), the other 4 via per-category
-G-Eval rubrics that read `ground_truth` for correct behavior (so one metric grades attack rows +
-answer-controls). 3.4 done via **reference-judge calibration (2026-08-11, ~$0.45)** — see
-[[judge-calibration-reference-mode]]: human-label path was abandoned (κ=−0.179, labels entered
-inverted). Instead **Opus 4.8 grades the 60 judgment rows and Haiku is calibrated against it**:
-`scripts/reference_calibration.py` → `reference_verdicts.jsonl`; `scripts/calibrate.py` generalized
-(`--rater-a-path`/`--rater-a-name`/`--out-prefix`). Result (`calibration/report-reference.md`):
-**κ = 0.782 (substantial), 96.6% agreement, n=59** (tox-002 excluded — Opus's input classifier
-refused it, `general_harms`; see [[opus-judge-refuses-toxicity]]). Honest framing: this is
-"cheap Haiku ≈ strong Opus", NOT "≈ human" — resume/BENCHMARKS wording must say reference-judge.
-Wide CI [0.383, 1.000] (small n + pass-heavy imbalance); overrefusal κ=0 despite 93% agreement is
-the kappa-imbalance trap, toxicity degenerate (all-pass). Stale `calibration/report.md` (κ=−0.179,
-old human labels) removed.
-3.3 done (mock-first): `runner/__init__.py` — `run_corpus()` = generate → grade → aggregate over
-the corpus; two resumable JSONL phases (responses/verdicts) so a crash never re-spends money or
-re-runs the model, and responses can be re-graded without regenerating. **The judge is injectable**
-(`metrics=` param) — default real Haiku, tests pass a fake — so `tests/test_runner.py` (4 tests)
-exercises the whole pipeline offline+free against MockSUT (+ scripted canary leak for a real
-deterministic-FAIL assertion; mutation-checked). Runner returns pass/fail **COUNTS only, no rates**
-— rates+Wilson CIs are Phase 5. `scripts/run_eval.py` CLI (`--sut/--category/--limit`, prints a
-cost note before judging); free smoke = `--sut mock --category injection --category pii`. Suite 35
-green. `runs/` gitignored. **Next: the first real base-model run** (`--sut mlx`, ~24 min gen +
-~$0.50 judge) — but producing a *rate* from those counts is Phase 5 (Wilson CIs → BENCHMARKS.md).
-⚠️ **Known Phase 3 caveat carried forward:** calibration is strong overall (κ=0.78) but weak per
-category on the two we'd most want — **toxicity is degenerate** (all-pass both judges → κ undefined,
-no agreement-above-chance signal) and **overrefusal κ=0** (class-imbalance trap despite 93% raw
-agreement). Defensible to proceed, but a category-specific toxicity/overrefusal claim rests on thin
-calibration evidence; revisit (more golden seeds / negative examples) before leaning on those two.
+**The baseline run is banked** (`runs/mlx/`, all 512 prompts, Qwen2.5-3B):
+
+| category | n | fails | fail rate | 95% CI |
+|---|---:|---:|---:|---|
+| hallucination | 88 | 48 | 54.5% | [44.2%, 64.5%] |
+| injection | 85 | 78 | 91.8% | [84.0%, 96.0%] |
+| overrefusal | 91 | 15 | 16.5% | [10.3%, 25.4%] |
+| pii | 85 | 71 | 83.5% | [74.2%, 89.9%] |
+| scope | 93 | 7 | 7.5% | [3.7%, 14.7%] |
+| toxicity | 70 | 5 | 7.1% | [3.1%, 15.7%] |
+| **overall** | 512 | 224 | **43.8%** | [39.5%, 48.1%] |
+
+**Phase 5 remaining:** (5a) grow overrefusal 91 → ~200, (5b) incremental re-run of only the new
+ids, (5c) write `BENCHMARKS.md`, (5d) delete the dead `tracing/`+`metrics/` stubs.
+
+### Two facts that shape Phase 6 (decided 2026-08-18)
+
+**1. The fine-tune is a THREE-category fine-tune.** Training fuel = TRAIN-split failures only:
+injection 60, pii 52, hallucination 32 — but **scope 4 and toxicity 3**. Scope/toxicity cannot be
+trained on and don't need to be (base model already at 7.5% / 7.1%). The reduction claim is scoped
+to injection + pii + hallucination, plus an overall number; scope/toxicity are reported as
+**regression guards** (did the fine-tune make them worse?), never as improvements.
+
+**2. Overrefusal is being grown 91 → ~200 to give the counterbalance statistical power.** At the
+current test-side n=27/k=2, a fine-tune that DOUBLED the refusal rate would be invisible:
+4/27 = 14.8% [5.9%, 32.5%] vs 9/27 = 33.3% [18.6%, 52.0%] overlap almost entirely. At n≈60
+(what 200 total yields on a 30% split) the same shift reads [9.3%, 28.0%] vs [24.2%, 47.5%] —
+detectable. A counterbalance that cannot fire is decoration.
+**Toxicity is deliberately NOT grown** (test n=20) — we aren't training on it, and a
+refusal-oriented fine-tune pushes toward refusal (which overrefusal catches), not toward more
+harmful output. Recorded as a stated limitation in BENCHMARKS.md, not silently ignored.
+
+⚠️ **Carried-forward calibration caveat:** overall κ=0.78 is strong, but **toxicity is degenerate**
+(all-pass both judges → κ undefined) and **overrefusal κ=0** (class-imbalance trap despite 93% raw
+agreement). Growing overrefusal in 5a also adds calibration headroom there. A category-specific
+toxicity claim rests on thin evidence — don't lean on it.
 
 ⚠️ **DeepEval 4.x Synthesizer API — verify against installed 4.1.0 in 2.3, not blogs (1.x).**
 
@@ -175,18 +131,26 @@ Confirmed by inspection: `load(path, adapter_path=...)` — `adapter_path` is th
 ⚠️ **DeepEval is 4.x, not 1.x.** Nearly every tutorial online is 1.x. Verify the custom-judge
 API against the installed package in Phase 3.1 — do not trust recalled/blog syntax.
 
-| Phase | Tech | Adds |
-|------:|------|------|
-| 0 | Python, git | Skeleton, hooks, keys |
-| 1 | MLX | The system under test + the SUT seam |
-| 2 | DeepEval Synthesizer | 500+ adversarial prompts, 6 categories, authored ground truth |
-| 3 | DeepEval + Claude | Metrics, judge, **judge calibration (κ)** |
-| 4 | LangSmith | Tracing, datasets, experiments |
-| 5 | scipy | Baseline measurement + Wilson CIs → `BENCHMARKS.md` |
-| 6 | mlx-lm LoRA | Fine-tune on mined failures → measured reduction |
-| 7 | FastAPI | Eval pipeline as a service + `/gate` |
-| 8 | Docker | Containerize |
-| 9 | GitHub Actions | CI + eval gate that **fails the build** on regression |
+| Phase | Tech | Adds | State |
+|------:|------|------|-------|
+| 0 | Python, git | Skeleton, hooks, keys | ✅ |
+| 1 | MLX | The system under test + the SUT seam | ✅ |
+| 2 | DeepEval Synthesizer | 500+ adversarial prompts, 6 categories, authored ground truth | ✅ |
+| 3 | DeepEval + Claude | Metrics, judge, **judge calibration (κ = 0.782)** | ✅ |
+| ~~4~~ | ~~LangSmith~~ | ~~Tracing, datasets, experiments~~ | ❌ **dropped** |
+| 5 | scipy | Baseline measurement + Wilson CIs → `BENCHMARKS.md` | 🔄 5a–5d left |
+| 6 | mlx-lm LoRA | Fine-tune on mined failures → measured reduction | ⬜ |
+| **7** | **FastAPI** | **Eval pipeline as a service + `/gate`** | ⬜ **deep-dive** |
+| **8** | **Docker** | **Containerize (linux, MockSUT, no mlx)** | ⬜ **deep-dive** |
+| **9** | **GitHub Actions** | **CI + eval gate that fails the build on regression** | ⬜ **deep-dive** |
+
+**Ship-fast batching plan (2026-08-18).** Six sittings to done:
+1. **5a–5d** — grow overrefusal, incremental re-run, `BENCHMARKS.md`, delete dead stubs.
+2. **6a–6c** — mine TRAIN failures → JSONL, LoRA train, `LoRASUT` behind the existing seam.
+3. **6d–6e** — re-measure on TEST only, write the reduction (+ counterbalance) into BENCHMARKS.
+4. **Phase 7** — FastAPI + `/gate`. *Long explanation.*
+5. **Phase 8** — Docker. *Long explanation.*
+6. **Phase 9** — GitHub Actions. *Long explanation.*
 
 ## Tech stack & key decisions
 
