@@ -4,24 +4,38 @@ Project context auto-loaded each session. Keep it short and current.
 
 ## What this is & why
 
-A **learning project**: build an automated framework that attacks a real LLM with 500+
-adversarial prompts across 6 failure categories, measures how often it fails, fine-tunes it
-to fail less, and ships the whole pipeline as a gated CI/CD service.
+An automated framework that attacks a real LLM with 500+ adversarial prompts across 6 failure
+categories, measures how often it fails, fine-tunes it to fail less, and ships the whole
+pipeline as a gated CI/CD service.
 
-It mirrors a set of LLM-safety-engineering resume bullets (DeepEval + LangSmith evals →
-fine-tuning → FastAPI + Docker + GitHub Actions).
+It mirrors a set of LLM-safety-engineering resume bullets (adversarial evals → fine-tuning →
+FastAPI + Docker + GitHub Actions).
 
-**The goal is deep understanding, not shipping speed.** Success = the owner can explain every
-piece end-to-end, including what a claim like "23% hallucination rate" actually depends on
-(judge calibration, sample size, prompt difficulty, confidence intervals).
+**Success = a shipped, running, gated service whose numbers the owner can defend.** Both
+halves matter: it has to exist, and the owner has to be able to explain what a claim like
+"43.8% failure rate" depends on (judge calibration, sample size, confidence intervals).
 
 ## Who I'm working with (working style)
 
-- The owner is **new to this stack** (DeepEval, LangSmith, LoRA/MLX, FastAPI, Docker, CI/CD).
-- **Teach as we go:** build → explain *why* it works → suggest a small experiment.
-  **Line-by-line walkthroughs, not code dumps. Check understanding before continuing.**
-- **Cost safety:** flag expected cost **before** anything that hits a paid API.
-- Finish and understand one phase before starting the next.
+**SHIP-FAST MODE (adopted 2026-08-18).** The earlier mode was "one small step, explain, check
+understanding, repeat." That was right for Phases 0–6, where the risk was claiming a number
+the owner couldn't defend. It is wrong for the remaining infra phases, where the risk is
+not shipping. New cadence:
+
+- **Batch the work.** Execute a whole phase (or a coherent chunk of one) in one go — write all
+  the files, run the tests, then stop. Do not pause between sub-steps for approval.
+- **Explain after, not during.** One walkthrough per batch covering what was built and *why it
+  is shaped that way* — the design decisions and the tradeoffs, not a line-by-line reading of
+  code the owner can see in the diff.
+- **Depth is now weighted to Phases 7–9** (FastAPI, Docker, GitHub Actions). These are the
+  phases the owner most needs to be able to talk through in an interview and has the least
+  prior exposure to, so they get the long explanations. Phases 5–6 get short ones.
+- The owner is **new to this stack** (LoRA/MLX, FastAPI, Docker, CI/CD) — ship-fast changes the
+  *cadence* of teaching, not whether it happens.
+- **Cost safety is unchanged:** flag expected cost **before** anything that hits a paid API.
+  Ship-fast is never a reason to skip this.
+- **The honesty note below is not in scope for speed.** No claimed number gets loosened,
+  no CI gets dropped, no split gets relaxed to move faster.
 
 ## The honesty note (read this before touching any number)
 
