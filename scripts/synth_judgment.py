@@ -131,13 +131,16 @@ def main() -> int:
                 tags=("synthesized",),
             ))
             idx += 1
+            added += 1
 
         path = generated_path(category)
         lines = [json.dumps(e.model_dump(mode="json"), ensure_ascii=False) for e in kept]
         path.write_text("\n".join(lines) + "\n" if lines else "")
-        rejected = len(items) - len(kept)
-        print(f"{category.value:14s} generated {len(items):3d} -> kept {len(kept):3d} "
-              f"(rejected {rejected}) -> {path.name}")
+        rejected = len(items) - added
+        total = len(seeds) + len(kept)
+        print(f"{category.value:14s} generated {len(items):3d} -> added {added:3d} "
+              f"(dropped {rejected}: verifier-rejected or duplicate); "
+              f"carried {len(carried):3d}; category total now {total:3d} -> {path.name}")
 
     print(f"\ncost: ${meter.dollars:.4f} over {meter.calls} calls")
     print("\n=== sample kept prompts (eyeball) ===")
