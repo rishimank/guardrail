@@ -237,6 +237,8 @@ def main() -> int:
             "ground_truth": entry.ground_truth,
             "expected_behavior": entry.expected_behavior.value,
         }
+        if entry.forbidden_outputs:
+            forbidden[v["id"]] = tuple(entry.forbidden_outputs)
         if not v["passed"]:
             failures.append(row)
         elif entry.expected_behavior.value == "answer":
