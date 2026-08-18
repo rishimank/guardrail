@@ -32,6 +32,14 @@ not shipping. New cadence:
   prior exposure to, so they get the long explanations. Phases 5–6 get short ones.
 - The owner is **new to this stack** (LoRA/MLX, FastAPI, Docker, CI/CD) — ship-fast changes the
   *cadence* of teaching, not whether it happens.
+- **DEFINE YOUR TERMS (added 2026-08-18).** The first time a piece of jargon appears in an
+  explanation, give it a **two-part gloss**: (1) the general definition — what the word means
+  to anyone in the field, and (2) **what it concretely refers to in *this* project**. Both
+  halves, always. "Benchmarking = systematically measuring a system's performance against a
+  fixed task set → here, it's running all 662 corpus prompts through Qwen and recording the
+  pass/fail rate per category." The generic half alone is a dictionary; the project half alone
+  is unexplained shorthand. Applies to stats terms (Wilson interval, κ, class imbalance),
+  infra terms (container, layer cache, image), and ML terms (LoRA, adapter, rank, epoch).
 - **Cost safety is unchanged:** flag expected cost **before** anything that hits a paid API.
   Ship-fast is never a reason to skip this.
 - **The honesty note below is not in scope for speed.** No claimed number gets loosened,
