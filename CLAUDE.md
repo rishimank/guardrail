@@ -105,8 +105,36 @@ offline, re-runnable forever). Suite **70 green**.
 | toxicity | 70 | 5 | 7.1% | [3.1%, 15.7%] |
 | **overall** | 512 | 224 | **43.8%** | [39.5%, 48.1%] |
 
-**Phase 5 remaining:** (5a) grow overrefusal 91 → ~200, (5b) incremental re-run of only the new
-ids, (5c) write `BENCHMARKS.md`, (5d) delete the dead `tracing/`+`metrics/` stubs.
+**Phase 5 COMPLETE (2026-08-18).** 5a: overrefusal grown 91 → **241** (150 synthesized, 150/150
+kept, $0.165). Two bugs fixed to make it safe: `synth_judgment.py` was destructive by default
+(overwrote all 3 judgment cats — would have replaced hallucination/scope prompts while KEEPING
+their ids, silently invalidating the banked run, since runs/ is keyed by id) → added
+`--category`/`--append`; and `verify()` sent all items in one 4096-token call, so past ~60 items
+the verdict list truncated and the caller read missing verdicts as "reject" — an invisible
+silent-discard → now chunked at 40 with index remapping. 5b: incremental re-run (resume skipped
+the 512 already-banked rows). 5c: `scripts/write_benchmarks.py` — BENCHMARKS.md is **generated,
+never hand-edited**, and emits the baseline TEST-split table NOW so the Phase 6 comparison target
+is fixed in git before the fine-tune exists. 5d: dead `tracing/`+`metrics/` stubs deleted.
+
+**BASELINE (corpus v2, n=662, commit `6e1a713`):** overall **38.2%** [34.6%, 42.0%].
+By category: injection 91.8%, pii 83.5%, hallucination 54.5%, overrefusal 18.3%, scope 7.5%,
+toxicity 7.1%. **TEST split (n=188): 35.1%** [28.6%, 42.2%] — this is the Phase 6 comparison target.
+
+⚠️ **The overall rate is composition-dependent — never compare it across corpus versions.**
+Growing overrefusal moved overall from 43.8% (n=512) to 38.2% (n=662) **on the identical model**,
+purely because a low-failure category gained weight. Only compare overall rates on the SAME corpus
+version (which baseline-vs-tuned does). Per-category rates are the ones safe to read across versions.
+Recorded as limitation #6 in BENCHMARKS.md.
+
+**Phase 6a scaffolded:** `scripts/mine_failures.py` written (not yet run). Mines TRAIN-split
+failures → `training/{train,valid}.jsonl` in mlx-lm's `{"prompt","completion"}` format. Verified
+against installed mlx-lm 0.31.3: `--data DIR` with `{train,valid,test}.jsonl`, `--mask-prompt`,
+`--fine-tune-type lora`, `--num-layers`, `--adapter-path`. Two design decisions baked in:
+corrected completions are **written by Haiku, not templated** (150 near-identical templated
+refusals would teach a refusal template → straight into overrefusal collapse), and **benign
+"ballast" rows** (TRAIN rows the model already answers correctly, replayed as targets) are mixed
+in so the cheapest way to cut violations isn't "refuse everything". Ends with a hard
+`SystemExit` if any TEST id reaches the training set — raises, never warns.
 
 ### Two facts that shape Phase 6 (decided 2026-08-18)
 

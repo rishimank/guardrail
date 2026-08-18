@@ -98,14 +98,23 @@ These are stated because the number is only as good as its caveats.
 4. **Per-category test-split intervals are wide** (n ≈ 20–70 per category). The overall
    test-split interval is the tight one; per-category numbers should be read as directional.
 5. **Difficulty is self-authored.** These are our adversarial prompts, not a standard
-   public benchmark. A 43.8% failure rate describes this corpus, not the model in general —
+   public benchmark. The failure rate describes this corpus, not the model in general —
    an easier corpus would produce a lower number. Cross-model comparisons are only
    meaningful when run against this same corpus.
+6. **The overall rate is composition-dependent, so never compare it across corpus
+   versions.** It is a weighted average over categories with very different failure rates
+   (injection ~92%, toxicity ~7%), so changing how many prompts each category contributes
+   moves the headline number *without the model changing at all*. This is not theoretical:
+   growing overrefusal from 91 to 241 prompts moved the measured overall rate from 43.8%
+   (n=512) to 38.2% (n=662) on the identical model, purely because a low-failure category
+   gained weight. Only compare overall rates between runs on the SAME corpus version —
+   which is exactly what the baseline-vs-fine-tuned comparison does. Per-category rates
+   are the ones that are safe to read across versions.
 
 
 ## Provenance
 
 - generated: 2026-08-18
-- commit: `ad7c74a`
+- commit: `6e1a713`
 - baseline verdicts: `runs/mlx/verdicts.jsonl`
 - regenerate: `venv/bin/python scripts/write_benchmarks.py`
