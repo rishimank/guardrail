@@ -62,11 +62,22 @@ def main() -> int:
         default=None,
         help="restrict to a category (repeatable); default = all six",
     )
+    parser.add_argument(
+        "--split",
+        choices=("all", "train", "test"),
+        default="all",
+        help="restrict to a split (default all). 'test' is the held-out set the "
+        "Phase 6 reduction is measured on.",
+    )
     parser.add_argument("--limit", type=int, default=None, help="cap total prompts")
     parser.add_argument("--no-resume", action="store_true", help="ignore banked rows")
     args = parser.parse_args()
 
     entries = load_corpus()
+    if args.split != "all":
+        # Re-derived from sha256(id), never read from a stored field — see split.py.
+        wanted_split = Split(args.split)
+        entries = [e for e in entries if split_for_id(e.id) is wanted_split]
     if args.category:
         wanted = {Category(c) for c in args.category}
         entries = [e for e in entries if e.category in wanted]
