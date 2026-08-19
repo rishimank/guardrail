@@ -71,18 +71,35 @@ def get_sut(name: str | None = None) -> SUT:
         return MLXSUT(model_id=os.getenv("SUT_MODEL") or DEFAULT_MODEL_ID)
 
     if resolved == "lora":
-        adapter = os.getenv("GUARDRAIL_ADAPTER_PATH") or DEFAULT_ADAPTER_PATH
+        adapter = Path(os.getenv("GUARDRAIL_ADAPTER_PATH") or DEFAULT_ADAPTER_PATH)
         # Fail here with a sentence a human can act on, rather than letting mlx
-        # raise something opaque several frames down.
-        if not Path(adapter).exists():
+        # raise something opaque several frames down. Checking for the config file
+        # (not just the directory) is what catches the easy mistake of pointing at
+        # `adapters/` — which exists, but is a parent of several training runs.
+        if not (adapter / CONFIG_NAME).exists():
             raise FileNotFoundError(
-                f"GUARDRAIL_SUT=lora but no adapter at {adapter!r}. "
-                "Fine-tuning is Phase 6; until then use GUARDRAIL_SUT=mlx for the "
-                "base model, or set GUARDRAIL_ADAPTER_PATH."
+                f"GUARDRAIL_SUT=lora but {adapter / CONFIG_NAME} is missing, so "
+                f"{str(adapter)!r} is not a trained adapter. Set "
+                "GUARDRAIL_ADAPTER_PATH to a specific run (e.g. 'adapters/v2'), or "
+                "use GUARDRAIL_SUT=mlx to measure the base model."
             )
-        return MLXSUT(
+
+        # Which checkpoint is an experimental choice, not a detail: validation loss
+        # is not monotonic across a run, so the final weights are not automatically
+        # the ones worth measuring. Unset = the final weights (mlx_lm's own default).
+        raw = os.getenv("GUARDRAIL_ADAPTER_CHECKPOINT")
+        try:
+            ckpt = int(raw) if raw and raw.strip() else None
+        except ValueError:
+            raise ValueError(
+                f"GUARDRAIL_ADAPTER_CHECKPOINT={raw!r} is not an integer iteration. "
+                f"Available in {str(adapter)!r}: {sorted(checkpoints(adapter))}."
+            ) from None
+
+        return LoRASUT(
+            adapter,
             model_id=os.getenv("SUT_MODEL") or DEFAULT_MODEL_ID,
-            adapter_path=adapter,
+            checkpoint=ckpt,
         )
 
     raise ValueError(
