@@ -78,6 +78,59 @@ model: `mlx-community/Qwen2.5-3B-Instruct-4bit` · n = 188 · 95% Wilson CI
 | toxicity | 20 | 2 | 10.0% | [2.8%, 30.1%] |
 | **overall** | 188 | 66 | 35.1% | [28.6%, 42.2%] |
 
+## Fine-tune
+
+**Method.** LoRA (Low-Rank Adaptation) via `mlx-lm`. The base weights are frozen; low-rank adapter matrices are trained and applied additively at inference. Only the last 8 transformer layers carry adapters, and prompt tokens are masked out of the loss (`mask_prompt`), so the model is trained on what it should *generate*, never on reproducing the attack text it was shown.
+
+| setting | value |
+|---|---|
+| base model | `mlx-community/Qwen2.5-3B-Instruct-4bit` |
+| adapter | `adapters/v2` (iteration 125) |
+| rank | 8 |
+| adapted layers | 8 |
+| iterations trained | 150 |
+| batch size | 4 |
+| learning rate | 0.0001 |
+| prompt masked in loss | True |
+
+**Training data.** Mined from the BASELINE run's own failures on the TRAIN split only (`scripts/mine_failures.py`), which ends in a hard assertion that no TEST-split id reached the training set. Corrected target responses were written by `claude-haiku-4-5` conditioned on each prompt's authored `ground_truth` — deliberately not templated, because ~150 near-identical refusals would teach a refusal template and drive the overrefusal category up. Benign prompts the base model already answered correctly were mixed in as ballast, so that refusing everything is not the cheapest way to reduce the violation rate.
+
+**Checkpoint selection.** Chosen on VALIDATION loss (a slice held out of the train side), never on the test split — selecting a checkpoint by its test score is a softer form of the leak this project's split exists to prevent, and would bias the reduction upward.
+
+## Fine-tuned — full corpus
+
+_Not measured, deliberately._ The fine-tuned model was evaluated on the held-out TEST split only (`run_eval.py --split test`). Its train-split prompts are the ones its training targets were mined from, so a score there would measure memorisation, not behaviour — and there is no honest number to put in this section.
+
+## Fine-tuned — held-out TEST split only
+
+model: `mlx-community/Qwen2.5-3B-Instruct-4bit+v2@125` · n = 188 · 95% Wilson CI
+
+| category | n | fails | fail rate | 95% CI |
+|---|---:|---:|---:|---|
+| hallucination | 29 | 1 | 3.4% | [0.6%, 17.2%] |
+| injection | 21 | 1 | 4.8% | [0.8%, 22.7%] |
+| overrefusal | 69 | 10 | 14.5% | [8.1%, 24.7%] |
+| pii | 21 | 3 | 14.3% | [5.0%, 34.6%] |
+| scope | 28 | 2 | 7.1% | [2.0%, 22.6%] |
+| toxicity | 20 | 0 | 0.0% | [0.0%, 16.1%] |
+| **overall** | 188 | 17 | 9.0% | [5.7%, 14.0%] |
+
+## Reduction (TEST split only)
+
+Measured exclusively on prompts the fine-tune never saw. Train-split numbers are deliberately omitted: the model was trained on those exact failures, so improvement there would measure memorisation.
+
+| category | baseline fail rate | tuned fail rate | absolute Δ | relative reduction |
+|---|---:|---:|---:|---:|
+| hallucination | 55.2% (n=29) | 3.4% (n=29) | -51.7 pts | +93.8% |
+| injection | 85.7% (n=21) | 4.8% (n=21) | -81.0 pts | +94.4% |
+| overrefusal | 11.6% (n=69) | 14.5% (n=69) | +2.9 pts | -25.0% |
+| pii | 90.5% (n=21) | 14.3% (n=21) | -76.2 pts | +84.2% |
+| scope | 10.7% (n=28) | 7.1% (n=28) | -3.6 pts | +33.3% |
+| toxicity | 10.0% (n=20) | 0.0% (n=20) | -10.0 pts | +100.0% |
+| **overall** | 35.1% (n=188) | 9.0% (n=188) | -26.1 pts | +74.2% |
+
+**Overrefusal counterbalance.** Overrefusal went from 11.6% to 14.5% (+2.9 pts). ⚠️ This is a REGRESSION: the model refuses more benign prompts than before. A violation drop bought with a refusal spike is not a real win, and the reduction above must be reported together with this row.
+
 ## Known limitations
 
 These are stated because the number is only as good as its caveats.
@@ -101,7 +154,25 @@ These are stated because the number is only as good as its caveats.
    public benchmark. The failure rate describes this corpus, not the model in general —
    an easier corpus would produce a lower number. Cross-model comparisons are only
    meaningful when run against this same corpus.
-6. **The overall rate is composition-dependent, so never compare it across corpus
+6. **The overrefusal metric conflates refusing with answering badly.** Its rubric awards
+   a high score when the output "genuinely helps", so the judge also fails responses that
+   answer the question but contain factual errors. Inspecting the graded rows directly:
+   of the baseline's 8 overrefusal failures only 3 were actual refusals (5 were answers
+   marked down for accuracy), and of the fine-tune's 10 failures 6 were refusals. So the
+   headline overrefusal delta (+2.9 pts) understates the refusal-specific change, which
+   is 3/69 → 6/69. Both runs are graded by the identical rubric, so the comparison is
+   still like-for-like — but "overrefusal rate" here should be read as *"wrongly refused
+   OR answered unhelpfully"*, not as a pure refusal rate. Fixing the rubric would change
+   the level of this number in both runs and is deferred rather than silently patched,
+   because re-grading only the tuned run would manufacture an improvement.
+7. **The fine-tune's validation set is small, so checkpoint choice is coarse.** The
+   checkpoint was selected on validation loss over ~32 held-out examples. At that size
+   differences of a few hundredths are noise: iterations 75/100/125 formed a plateau
+   (0.770 / 0.811 / 0.769) and only iteration 150 (0.885) was clearly worse. The claim
+   this supports is "we did not ship an over-trained checkpoint", not "this is the
+   optimal checkpoint". Only ONE checkpoint was ever scored on the test split, on
+   purpose — scoring several and reporting the best would bias the reduction upward.
+7. **The overall rate is composition-dependent, so never compare it across corpus
    versions.** It is a weighted average over categories with very different failure rates
    (injection ~92%, toxicity ~7%), so changing how many prompts each category contributes
    moves the headline number *without the model changing at all*. This is not theoretical:
@@ -114,7 +185,8 @@ These are stated because the number is only as good as its caveats.
 
 ## Provenance
 
-- generated: 2026-08-18
-- commit: `6e1a713`
+- generated: 2026-08-19
+- commit: `1854204`
 - baseline verdicts: `runs/mlx/verdicts.jsonl`
+- tuned verdicts: `runs/lora-v2-ck125/verdicts.jsonl`
 - regenerate: `venv/bin/python scripts/write_benchmarks.py`
