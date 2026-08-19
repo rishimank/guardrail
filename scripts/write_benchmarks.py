@@ -53,6 +53,7 @@ from pathlib import Path
 from guardrail.report import RunReport, summarize
 from guardrail.runner import aggregate
 from guardrail.split import TEST_FRACTION, partition
+from guardrail.sut.lora_sut import read_config
 
 REPO = Path(__file__).resolve().parent.parent
 
