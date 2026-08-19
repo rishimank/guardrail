@@ -59,6 +59,26 @@ def _emit(progress: Progress | None, message: str) -> None:
         progress(message)
 
 
+def _assert_same_model(path: Path, model_id: str) -> None:
+    """Refuse to resume a run banked by a different model.
+
+    The failure this prevents is invisible: resume skips by id, so re-running
+    checkpoint 150 into a directory full of checkpoint-100 responses would skip all of
+    them, grade nothing new, and emit a summary labelled 150 whose every row came from
+    100. No error, no warning, and a reduction number attributed to the wrong weights.
+    The fix is always a separate --out-dir, so that is what the message says.
+    """
+    banked = {row.get("model_id", "") for row in _read_jsonl(path)}
+    banked.discard("")
+    if banked and banked != {model_id}:
+        raise ValueError(
+            f"{path} holds responses from {sorted(banked)} but the current SUT is "
+            f"{model_id!r}. Resume matches on id only, so continuing would mix models "
+            f"in one result set. Use a separate --out-dir for this model "
+            f"(e.g. runs/lora-ck125/)."
+        )
+
+
 def generate_responses(
     sut: SUT,
     entries: Sequence[Entry],
