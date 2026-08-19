@@ -89,7 +89,8 @@ def main() -> int:
     except ValueError:
         src_label = src  # verdicts outside the repo (e.g. an ad-hoc --verdicts path)
     print(report.format_markdown())
-    print(f"\n_source: {src_label} · commit `{_git_sha()}`_")
+    split_label = "" if args.split == "all" else f" · {args.split} split only"
+    print(f"\n_source: {src_label}{split_label} · commit `{_git_sha()}`_")
     return 0
 
 
