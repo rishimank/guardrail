@@ -46,6 +46,7 @@ from guardrail.dataset import load_corpus  # noqa: E402
 from guardrail.dataset.schema import Category  # noqa: E402
 from guardrail.judge.metrics import DETERMINISTIC_CATEGORIES  # noqa: E402
 from guardrail.runner import run_corpus  # noqa: E402
+from guardrail.split import Split, split_for_id  # noqa: E402
 from guardrail.sut import get_sut  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
