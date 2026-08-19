@@ -13,9 +13,20 @@ judgment rows it is about to grade before doing so.
 Free offline smoke (no API): restrict to the deterministic categories against the mock:
     venv/bin/python scripts/run_eval.py --sut mock --category injection --category pii
 
+--split IS THE PHASE 6 COST AND INTEGRITY LEVER
+    The reduction is measured on the held-out TEST split only — the ~30% of prompts the
+    fine-tune never saw. Scoring the TRAIN side of a fine-tuned model measures
+    memorisation, not generalisation, so those rows are not merely wasted money, they
+    are a number nobody should quote. `--split test` runs ~188 prompts instead of 662,
+    which is also roughly a third of the judging spend.
+
+    Default is `all`, matching the banked baseline (runs/mlx/ holds the full corpus, and
+    write_benchmarks.py partitions it at report time). The split is re-derived from ids
+    via split.py — never read from a stored field.
+
 PSEUDOCODE
-    1. Parse --sut / --out-dir / --category (repeatable) / --limit / --no-resume.
-    2. Load the corpus; apply category filter and limit.
+    1. Parse --sut / --out-dir / --category (repeatable) / --split / --limit / --no-resume.
+    2. Load the corpus; apply split filter, category filter and limit.
     3. Count judgment rows (the ones that will cost money) and print a cost note.
     4. run_corpus(get_sut(sut), entries, out_dir) with a printing progress callback.
     5. Print the counts table + artifact paths.
