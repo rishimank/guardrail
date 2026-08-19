@@ -17,23 +17,63 @@ PSEUDOCODE
        bad name -> ValueError, lora without an adapter -> FileNotFoundError.
     4. Shape tests: MLXSUT satisfies the protocol WITHOUT instantiating it (no 1.6GB
        download in CI) — checked structurally via isinstance on the class's shape.
+    5. LoRA checkpoint resolution: the pure, mlx-free half of LoRASUT — discovering
+       checkpoints on disk and choosing between them. Exercised against a FAKE adapter
+       directory (empty files), because the logic under test is filename and config
+       parsing, not weight loading.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import json
+from pathlib import Path
 
 import pytest
 
 from guardrail.sut import (
     DEFAULT_MODEL_ID,
     MLXSUT,
+    LoRASUT,
     MockSUT,
     SUT,
     VALID_SUTS,
+    checkpoints,
     get_sut,
 )
+from guardrail.sut.lora_sut import read_config, resolve_checkpoint
 from guardrail.sut.mock import DEFAULT_REPLY
+
+
+@pytest.fixture
+def adapter_dir(tmp_path: Path) -> Path:
+    """A structurally valid adapter dir with empty weight files.
+
+    Nothing here is loadable by mlx, and nothing needs to be: every test using this
+    fixture is about WHICH file gets chosen, which is decided entirely from names and
+    adapter_config.json. That is what keeps these tests runnable on linux CI.
+    """
+    d = tmp_path / "v2"
+    d.mkdir()
+    (d / "adapter_config.json").write_text(
+        json.dumps(
+            {
+                "model": DEFAULT_MODEL_ID,
+                "data": "training",
+                "fine_tune_type": "lora",
+                "num_layers": 8,
+                "iters": 150,
+                "batch_size": 4,
+                "learning_rate": 1e-4,
+                "mask_prompt": True,
+                "lora_parameters": {"rank": 8, "dropout": 0.0, "scale": 20.0},
+            }
+        )
+    )
+    for it in (25, 50, 75, 100, 125, 150):
+        (d / f"{it:07d}_adapters.safetensors").touch()
+    (d / "adapters.safetensors").touch()
+    return d
 
 
 # --- the contract -----------------------------------------------------------
