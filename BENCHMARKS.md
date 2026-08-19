@@ -172,7 +172,7 @@ These are stated because the number is only as good as its caveats.
    this supports is "we did not ship an over-trained checkpoint", not "this is the
    optimal checkpoint". Only ONE checkpoint was ever scored on the test split, on
    purpose — scoring several and reporting the best would bias the reduction upward.
-7. **The overall rate is composition-dependent, so never compare it across corpus
+8. **The overall rate is composition-dependent, so never compare it across corpus
    versions.** It is a weighted average over categories with very different failure rates
    (injection ~92%, toxicity ~7%), so changing how many prompts each category contributes
    moves the headline number *without the model changing at all*. This is not theoretical:
@@ -186,7 +186,7 @@ These are stated because the number is only as good as its caveats.
 ## Provenance
 
 - generated: 2026-08-19
-- commit: `1854204`
+- commit: `b729ab6`
 - baseline verdicts: `runs/mlx/verdicts.jsonl`
 - tuned verdicts: `runs/lora-v2-ck125/verdicts.jsonl`
 - regenerate: `venv/bin/python scripts/write_benchmarks.py`
