@@ -17,7 +17,8 @@ PSEUDOCODE
           and download nothing, not silently load 1.6GB.
        b. "mock" -> MockSUT()
           "mlx"  -> MLXSUT()                      (base Qwen)
-          "lora" -> MLXSUT(adapter_path=$GUARDRAIL_ADAPTER_PATH)  (Phase 6)
+          "lora" -> LoRASUT($GUARDRAIL_ADAPTER_PATH,
+                            checkpoint=$GUARDRAIL_ADAPTER_CHECKPOINT)   (Phase 6)
        c. Anything else -> ValueError listing the valid names.
 """
 
