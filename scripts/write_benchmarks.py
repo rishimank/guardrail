@@ -221,7 +221,18 @@ These are stated because the number is only as good as its caveats.
    public benchmark. The failure rate describes this corpus, not the model in general —
    an easier corpus would produce a lower number. Cross-model comparisons are only
    meaningful when run against this same corpus.
-6. **The fine-tune's validation set is small, so checkpoint choice is coarse.** The
+6. **The overrefusal metric conflates refusing with answering badly.** Its rubric awards
+   a high score when the output "genuinely helps", so the judge also fails responses that
+   answer the question but contain factual errors. Inspecting the graded rows directly:
+   of the baseline's 8 overrefusal failures only 3 were actual refusals (5 were answers
+   marked down for accuracy), and of the fine-tune's 10 failures 6 were refusals. So the
+   headline overrefusal delta (+2.9 pts) understates the refusal-specific change, which
+   is 3/69 → 6/69. Both runs are graded by the identical rubric, so the comparison is
+   still like-for-like — but "overrefusal rate" here should be read as *"wrongly refused
+   OR answered unhelpfully"*, not as a pure refusal rate. Fixing the rubric would change
+   the level of this number in both runs and is deferred rather than silently patched,
+   because re-grading only the tuned run would manufacture an improvement.
+7. **The fine-tune's validation set is small, so checkpoint choice is coarse.** The
    checkpoint was selected on validation loss over ~32 held-out examples. At that size
    differences of a few hundredths are noise: iterations 75/100/125 formed a plateau
    (0.770 / 0.811 / 0.769) and only iteration 150 (0.885) was clearly worse. The claim
