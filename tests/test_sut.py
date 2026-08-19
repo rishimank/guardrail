@@ -134,10 +134,30 @@ def test_unknown_sut_raises_with_the_valid_options(
 def test_lora_without_an_adapter_fails_actionably(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Phase 6 has not happened yet, so this must not raise something opaque from
-    # inside mlx several frames down.
+    # Must not raise something opaque from inside mlx several frames down.
     monkeypatch.setenv("GUARDRAIL_ADAPTER_PATH", "/nonexistent/adapters")
-    with pytest.raises(FileNotFoundError, match="Phase 6"):
+    with pytest.raises(FileNotFoundError, match="not a trained adapter"):
+        get_sut("lora")
+
+
+def test_lora_pointed_at_the_parent_folder_fails_actionably(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # `adapters/` EXISTS but holds v1, v2, ... — a plain exists() check would pass it
+    # through and mlx would then die on a missing adapter_config.json. This is the
+    # realistic mistake, so it gets its own test.
+    (tmp_path / "v1").mkdir()
+    monkeypatch.setenv("GUARDRAIL_ADAPTER_PATH", str(tmp_path))
+    with pytest.raises(FileNotFoundError, match="adapter_config.json"):
+        get_sut("lora")
+
+
+def test_non_integer_checkpoint_is_rejected_before_anything_loads(
+    monkeypatch: pytest.MonkeyPatch, adapter_dir: Path
+) -> None:
+    monkeypatch.setenv("GUARDRAIL_ADAPTER_PATH", str(adapter_dir))
+    monkeypatch.setenv("GUARDRAIL_ADAPTER_CHECKPOINT", "best")
+    with pytest.raises(ValueError, match="not an integer iteration"):
         get_sut("lora")
 
 
