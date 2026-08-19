@@ -219,3 +219,72 @@ def test_mlx_sut_declares_the_protocol_without_being_instantiated() -> None:
 def test_default_model_id_is_the_documented_one() -> None:
     # CLAUDE.md's memory-budget reasoning (M1 Pro / 16GB) depends on 3B/4-bit.
     assert DEFAULT_MODEL_ID == "mlx-community/Qwen2.5-3B-Instruct-4bit"
+
+
+# --- LoRA checkpoint resolution (no mlx, no weights) ------------------------
+
+
+def test_checkpoints_are_discovered_by_iteration(adapter_dir: Path) -> None:
+    assert sorted(checkpoints(adapter_dir)) == [25, 50, 75, 100, 125, 150]
+
+
+def test_final_weights_are_not_reported_as_a_checkpoint(adapter_dir: Path) -> None:
+    # `adapters.safetensors` carries no iteration in its name; its iteration comes
+    # from the config. Listing it as checkpoint 0 would be a lie.
+    assert all(p.name != "adapters.safetensors" for p in checkpoints(adapter_dir).values())
+
+
+def test_checkpoints_of_a_missing_dir_is_empty_not_an_error(tmp_path: Path) -> None:
+    assert checkpoints(tmp_path / "nope") == {}
+
+
+def test_unrelated_safetensors_are_ignored(adapter_dir: Path) -> None:
+    (adapter_dir / "model.safetensors").touch()
+    (adapter_dir / "notes_adapters.safetensors").touch()
+    assert sorted(checkpoints(adapter_dir)) == [25, 50, 75, 100, 125, 150]
+
+
+def test_default_resolution_is_the_final_weights_labelled_from_config(
+    adapter_dir: Path,
+) -> None:
+    path, label = resolve_checkpoint(adapter_dir)
+    assert path.name == "adapters.safetensors"
+    # The label must come from the config's iters, not from the filename, which has none.
+    assert label == 150
+
+
+def test_explicit_checkpoint_selects_that_file(adapter_dir: Path) -> None:
+    path, label = resolve_checkpoint(adapter_dir, 100)
+    assert path.name == "0000100_adapters.safetensors"
+    assert label == 100
+
+
+def test_unavailable_checkpoint_lists_what_exists(adapter_dir: Path) -> None:
+    # Silently falling back to another checkpoint would mean reporting a number for
+    # weights nobody chose — and the verdicts would look completely normal.
+    with pytest.raises(ValueError, match=r"No checkpoint at iteration 137"):
+        resolve_checkpoint(adapter_dir, 137)
+    with pytest.raises(ValueError, match=r"\[25, 50, 75, 100, 125, 150\]"):
+        resolve_checkpoint(adapter_dir, 137)
+
+
+def test_config_missing_names_the_likely_mistake(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="not an mlx_lm adapter directory"):
+        read_config(tmp_path)
+
+
+def test_provenance_keys_needed_by_benchmarks_are_in_the_config(
+    adapter_dir: Path,
+) -> None:
+    # BENCHMARKS.md quotes rank/layers/iters from the adapter itself rather than from
+    # a retyped shell command, so the config must actually carry them.
+    cfg = read_config(adapter_dir)
+    assert cfg["lora_parameters"]["rank"] == 8
+    assert cfg["num_layers"] == 8
+    assert cfg["mask_prompt"] is True
+
+
+def test_lora_sut_declares_the_protocol_without_being_instantiated() -> None:
+    # Same trick as MLXSUT: prove the shape without loading 1.6GB of weights.
+    assert hasattr(LoRASUT, "generate")
+    assert hasattr(LoRASUT, "model_id")
