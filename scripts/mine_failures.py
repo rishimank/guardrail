@@ -226,6 +226,7 @@ def main() -> int:
 
     failures: list[dict] = []
     ballast_pool: list[dict] = []
+    forbidden: dict[str, tuple[str, ...]] = {}
     for v in verdicts:
         entry = corpus.get(v["id"])
         if entry is None or split_for_id(v["id"]) is not Split.TRAIN:
@@ -268,7 +269,9 @@ def main() -> int:
         return 0
 
     meter = CostMeter()
-    fixed = _fix_failures(Anthropic(), failures, meter)
+    client = Anthropic()
+    fixed = _fix_failures(client, failures, meter)
+    fixed, dropped = _repair_leaks(client, fixed, failures, forbidden, meter)
     print(f"\ncorrections: {len(fixed)}/{len(failures)} · actual cost ${meter.dollars:.4f}")
 
     examples = [
