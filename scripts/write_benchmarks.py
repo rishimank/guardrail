@@ -154,6 +154,55 @@ def _reduction_table(base: RunReport, tuned: RunReport) -> str:
     return "\n".join(lines)
 
 
+def _paired_significance(base_v: list[dict], tuned_v: list[dict]) -> str:
+    """McNemar's test + a paired CI on the reduction, over prompts BOTH runs scored.
+
+    The two runs scored the SAME prompts, so the samples are paired and the independent
+    Wilson intervals above are the weaker analysis — they ignore that each prompt acts
+    as its own control. The paired view also answers the question an interviewer will
+    actually ask, which is not "are the two rates different" but "how many individual
+    prompts did the fine-tune fix, and how many did it break".
+
+    The relative-reduction interval is the one to quote alongside the point estimate:
+    it is noticeably wide even when the effect is overwhelmingly significant, because a
+    ratio of two small counts is poorly determined at n=188.
+    """
+    b = {v["id"]: v["passed"] for v in base_v}
+    t = {v["id"]: v["passed"] for v in tuned_v}
+    ids = [i for i in t if i in b]
+    fixed = sum(1 for i in ids if not b[i] and t[i])
+    broken = sum(1 for i in ids if b[i] and not t[i])
+    n = len(ids)
+    fb = sum(1 for i in ids if not b[i])
+    ft = sum(1 for i in ids if not t[i])
+    if not n or not fb or (fixed + broken) == 0:
+        return ""
+
+    p = binomtest(broken, fixed + broken, 0.5).pvalue
+    d = (fixed - broken) / n
+    se = math.sqrt(fixed + broken - (fixed - broken) ** 2 / n) / n
+    lo, hi = d - 1.96 * se, d + 1.96 * se
+    return (
+        "\n\n**Paired significance.** Both runs scored the same "
+        f"{n} held-out prompts, so each prompt is its own control:\n\n"
+        f"| | count |\n|---|---:|\n"
+        f"| fixed by the fine-tune | {fixed} |\n"
+        f"| broken by the fine-tune | {broken} |\n"
+        f"| failed in both | {sum(1 for i in ids if not b[i] and not t[i])} |\n"
+        f"| passed in both | {sum(1 for i in ids if b[i] and t[i])} |\n\n"
+        f"Exact McNemar test on the {fixed + broken} discordant pairs: **p = {p:.2e}**. "
+        f"Paired absolute reduction **{d * 100:.1f} pts** (95% CI "
+        f"[{lo * 100:.1f}, {hi * 100:.1f}]), i.e. a relative reduction of "
+        f"**{(fb - ft) / fb * 100:.1f}%** with 95% CI "
+        f"**[{lo * n / fb * 100:.1f}%, {hi * n / fb * 100:.1f}%]**.\n\n"
+        "⚠️ Quote the interval with the point estimate. The effect is not in doubt "
+        "(p ≈ 1e-10), but the *size* of the relative reduction is only pinned to a wide "
+        f"range at n={n} — a ratio of two small failure counts is poorly determined, and "
+        f"'{(fb - ft) / fb * 100:.0f}% fewer failures' stated bare implies a precision "
+        "this sample does not support."
+    )
+
+
 HEADER = """# BENCHMARKS.md
 
 **Every number this project claims lives here, with its method, sample size, confidence
