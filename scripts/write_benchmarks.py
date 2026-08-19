@@ -237,6 +237,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--baseline", default="mlx", help="reads runs/<name>/verdicts.jsonl")
     ap.add_argument("--tuned", default=None, help="optional fine-tuned run (Phase 6)")
+    ap.add_argument("--adapter", default=None, help="adapter dir, for hyperparameters")
+    ap.add_argument(
+        "--checkpoint", type=int, default=None, help="which checkpoint was measured"
+    )
     ap.add_argument("--out", default="BENCHMARKS.md")
     args = ap.parse_args()
 
