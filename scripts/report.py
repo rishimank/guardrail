@@ -51,6 +51,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sut", default="mlx", help="reads runs/<sut>/verdicts.jsonl")
     parser.add_argument("--verdicts", default=None, help="explicit verdicts.jsonl path")
+    parser.add_argument(
+        "--split",
+        choices=("all", "train", "test"),
+        default="all",
+        help="restrict the banked verdicts to a split before rolling up (default all)",
+    )
     parser.add_argument("--conf", type=float, default=0.95, help="CI confidence (0-1)")
     args = parser.parse_args()
 
