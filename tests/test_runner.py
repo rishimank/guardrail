@@ -132,6 +132,42 @@ def test_resume_is_idempotent(tmp_path: Path) -> None:
     assert summary.n == 4
 
 
+def test_resume_refuses_to_mix_models(tmp_path: Path) -> None:
+    """The Phase 6 footgun: two checkpoints, one run directory.
+
+    Resume skips by id alone, so without this guard a second run under different
+    weights would skip every banked row, grade nothing, and return a summary labelled
+    with the NEW model whose every row came from the OLD one. No error, no warning, and
+    a reduction attributed to weights that never produced it.
+    """
+    import pytest
+
+    corpus, metrics = _corpus(), _fake_metrics()
+    run_corpus(_scripted_sut(), corpus, tmp_path, metrics=metrics)
+
+    other = MockSUT(responses={}, default_reply="different weights")
+    other._model_id = "qwen+v2@125"  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="Resume matches on id only"):
+        generate_responses(other, corpus, tmp_path / "responses.jsonl")
+
+
+def test_resume_guard_names_both_models(tmp_path: Path) -> None:
+    import pytest
+
+    run_corpus(_scripted_sut(), _corpus(), tmp_path, metrics=_fake_metrics())
+    other = MockSUT(responses={})
+    other._model_id = "qwen+v2@125"  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="qwen\\+v2@125"):
+        generate_responses(other, _corpus(), tmp_path / "responses.jsonl")
+
+
+def test_fresh_directory_is_not_blocked_by_the_guard(tmp_path: Path) -> None:
+    # The guard must only fire on a genuine mismatch — an empty dir has no banked
+    # model to conflict with, so a first run of any SUT proceeds normally.
+    n = generate_responses(_scripted_sut(), _corpus(), tmp_path / "responses.jsonl")
+    assert n == 4
+
+
 def test_aggregate_counts_only() -> None:
     verdicts = [
         {"category": "scope", "passed": True},
