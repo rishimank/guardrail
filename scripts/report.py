@@ -10,9 +10,14 @@ verdicts already banked. Run it as many times as you like.
 The commit SHA is printed alongside so the table can be pasted into BENCHMARKS.md with
 its provenance (method + n + CI + SHA) intact, as the honesty note requires.
 
+`--split test` filters the banked verdicts to the held-out prompts before rolling up —
+the same partition write_benchmarks.py applies, exposed here for a quick look at one run
+without regenerating BENCHMARKS.md. Filtering happens at REPORT time from ids, so a
+full-corpus run can be re-read as a test-split report without re-running anything.
+
 PSEUDOCODE
-    1. Parse --sut (default mlx) / --verdicts (explicit path) / --conf.
-    2. Read verdicts.jsonl; pull model_id from the rows.
+    1. Parse --sut (default mlx) / --verdicts (explicit path) / --split / --conf.
+    2. Read verdicts.jsonl; apply the split filter; pull model_id from the rows.
     3. aggregate(verdicts) -> RunSummary (counts).
     4. summarize(summary, conf) -> RunReport (rates + Wilson CIs).
     5. Print format_markdown() + the current commit SHA.
