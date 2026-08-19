@@ -21,13 +21,24 @@ WHY TWO TABLES PER MODEL
     comparison target in git ahead of time, so the "after" number can't be quietly
     compared against a more flattering slice later.
 
+A TUNED RUN IS NORMALLY TEST-ONLY, AND THAT CHANGES WHAT MAY BE PRINTED
+    The baseline was run over the whole corpus; the fine-tuned model is run with
+    `--split test`, because scoring it on the train side measures memorisation and costs
+    money to learn nothing. So a tuned run legitimately contains ZERO train-split rows —
+    and in that case a section headed "full corpus" would be a false label on a
+    test-only table. This script detects that (it partitions the rows and looks) and
+    omits the full-corpus section rather than mislabelling 188 rows as 662.
+
 PSEUDOCODE
     1. Load baseline verdicts (runs/<baseline>/verdicts.jsonl); optionally a --tuned run.
     2. For each run: build a full-corpus report and a test-split-only report
        (partition by split.py, which re-derives the split from ids — nothing stored).
     3. If a tuned run is present, compute the per-category reduction vs. baseline on TEST
-       ONLY, and flag the overrefusal counterbalance explicitly.
-    4. Render the whole document (method, tables, limitations, provenance) and write it.
+       ONLY, and flag the overrefusal counterbalance explicitly. Emit the tuned
+       full-corpus table ONLY if the run actually covers the full corpus.
+    4. If --adapter is given, read adapter_config.json and print the fine-tune's
+       hyperparameters from the adapter itself, so they cannot be mistyped.
+    5. Render the whole document (method, tables, limitations, provenance) and write it.
 """
 
 from __future__ import annotations
