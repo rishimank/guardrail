@@ -298,8 +298,20 @@ def main() -> int:
                     "reduction above is not an artefact of blanket refusal."
                 )
             )
+        if tuned_full is not None:
+            parts.append("## Fine-tuned — full corpus\n\n" + tuned_full.format_markdown())
+        else:
+            # Not a gap in the data — a deliberate one. Say so, so a reader does not
+            # go looking for a table that was withheld on purpose.
+            parts.append(
+                "## Fine-tuned — full corpus\n\n"
+                "_Not measured, deliberately._ The fine-tuned model was evaluated on the "
+                "held-out TEST split only (`run_eval.py --split test`). Its train-split "
+                "prompts are the ones its training targets were mined from, so a score "
+                "there would measure memorisation, not behaviour — and there is no "
+                "honest number to put in this section."
+            )
         parts += [
-            "## Fine-tuned — full corpus\n\n" + tuned_full.format_markdown(),
             "## Fine-tuned — held-out TEST split only\n\n" + tuned_test.format_markdown(),
             "## Reduction (TEST split only)\n\n"
             "Measured exclusively on prompts the fine-tune never saw. Train-split numbers "
