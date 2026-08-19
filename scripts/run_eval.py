@@ -90,7 +90,10 @@ def main() -> int:
     judgment_n = sum(1 for e in entries if e.category not in DETERMINISTIC_CATEGORIES)
     out_dir = Path(args.out_dir) if args.out_dir else REPO / "runs" / args.sut
 
-    print(f"corpus: {len(entries)} prompts | sut={args.sut} | out={out_dir}")
+    print(
+        f"corpus: {len(entries)} prompts | split={args.split} | "
+        f"sut={args.sut} | out={out_dir}"
+    )
     if judgment_n:
         print(
             f"⚠️  {judgment_n} judgment rows will call the Haiku judge "
