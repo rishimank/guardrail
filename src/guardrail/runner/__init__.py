@@ -72,7 +72,15 @@ def generate_responses(
     Serial on purpose: the SUT is a single local model, so there is nothing to overlap.
     Resumable: ids already present in `out_path` are skipped, so a re-run costs no time
     for work already done.
+
+    Resume is keyed on id ALONE, which is safe only while the model is held constant.
+    Phase 6 breaks that assumption — `runs/lora/` would be the default output for every
+    checkpoint of every adapter — so resuming into a directory banked by a different
+    model is refused outright. Silently skipping the rows would report one set of
+    weights under another's name, and nothing downstream could detect it.
     """
+    if resume:
+        _assert_same_model(out_path, sut.model_id)
     done = _done_ids(out_path) if resume else set()
     todo = [e for e in entries if e.id not in done]
     out_path.parent.mkdir(parents=True, exist_ok=True)
