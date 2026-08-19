@@ -33,23 +33,31 @@ from guardrail.sut.base import (
     Response,
     SUT,
 )
+from guardrail.sut.lora_sut import CONFIG_NAME, LoRASUT, checkpoints
 from guardrail.sut.mlx_sut import DEFAULT_MODEL_ID, MLXSUT
 from guardrail.sut.mock import MockSUT
 
 __all__ = [
+    "DEFAULT_ADAPTER_PATH",
     "DEFAULT_MAX_TOKENS",
     "DEFAULT_MODEL_ID",
     "DEFAULT_TEMPERATURE",
+    "LoRASUT",
     "MLXSUT",
     "MockSUT",
     "Response",
     "SUT",
     "VALID_SUTS",
+    "checkpoints",
     "get_sut",
 ]
 
 VALID_SUTS = ("mock", "mlx", "lora")
-DEFAULT_ADAPTER_PATH = "adapters"
+# A specific training run, not the folder that holds them. `adapters/` is a parent
+# directory containing v1, v2, ...; pointing mlx_lm at it fails deep inside the loader
+# on a missing adapter_config.json, so the default names a run and get_sut() checks
+# for that file rather than for mere directory existence.
+DEFAULT_ADAPTER_PATH = "adapters/v2"
 
 
 def get_sut(name: str | None = None) -> SUT:
