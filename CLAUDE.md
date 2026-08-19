@@ -63,7 +63,7 @@ Two things protect the reduction claim specifically:
 ## Status
 
 **Phases 0–3 COMPLETE.** Condensed log (full detail in git history):
-- **0** — repo, venv (Python 3.13.7), deps, auto-commit hook, private repo `rishimank/guardrail`,
+- **0** — repo, venv (Python 3.13.7), deps, auto-commit hook, repo `rishimank/guardrail` (now public),
   both API keys verified live.
 - **1** — the SUT seam. `sut/base.py` (`SUT` Protocol + frozen `Response`), `MockSUT` (offline/free),
   `MLXSUT` (Qwen2.5-3B-Instruct-4bit, ~71 tok/s → ~24 min for a 512-prompt run). Greedy (temp 0.0)
