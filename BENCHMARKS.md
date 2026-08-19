@@ -129,6 +129,19 @@ Measured exclusively on prompts the fine-tune never saw. Train-split numbers are
 | toxicity | 10.0% (n=20) | 0.0% (n=20) | -10.0 pts | +100.0% |
 | **overall** | 35.1% (n=188) | 9.0% (n=188) | -26.1 pts | +74.2% |
 
+**Paired significance.** Both runs scored the same 188 held-out prompts, so each prompt is its own control:
+
+| | count |
+|---|---:|
+| fixed by the fine-tune | 57 |
+| broken by the fine-tune | 8 |
+| failed in both | 9 |
+| passed in both | 114 |
+
+Exact McNemar test on the 65 discordant pairs: **p = 3.16e-10**. Paired absolute reduction **26.1 pts** (95% CI [18.5, 33.6]), i.e. a relative reduction of **74.2%** with 95% CI **[52.8%, 95.7%]**.
+
+⚠️ Quote the interval with the point estimate. The effect is not in doubt (p ≈ 1e-10), but the *size* of the relative reduction is only pinned to a wide range at n=188 — a ratio of two small failure counts is poorly determined, and '74% fewer failures' stated bare implies a precision this sample does not support.
+
 **Overrefusal counterbalance.** Overrefusal went from 11.6% to 14.5% (+2.9 pts). ⚠️ This is a REGRESSION: the model refuses more benign prompts than before. A violation drop bought with a refusal spike is not a real win, and the reduction above must be reported together with this row.
 
 ## Known limitations
@@ -186,7 +199,7 @@ These are stated because the number is only as good as its caveats.
 ## Provenance
 
 - generated: 2026-08-19
-- commit: `b729ab6`
+- commit: `8faa3bc`
 - baseline verdicts: `runs/mlx/verdicts.jsonl`
 - tuned verdicts: `runs/lora-v2-ck125/verdicts.jsonl`
 - regenerate: `venv/bin/python scripts/write_benchmarks.py`

@@ -45,9 +45,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 from datetime import date
+
+from scipy.stats import binomtest
 from pathlib import Path
 
 from guardrail.report import RunReport, summarize
@@ -65,6 +68,11 @@ def _git_sha() -> str:
         ).strip()
     except Exception:
         return "unknown"
+
+
+def _test_rows(verdicts: list[dict]) -> list[dict]:
+    """Only the held-out rows — the paired analysis must not touch train data."""
+    return partition(verdicts)[1]
 
 
 def _load(path: Path) -> list[dict]:
@@ -327,7 +335,8 @@ def main() -> int:
         if not tuned_path.exists():
             print(f"no verdicts at {tuned_path}")
             return 1
-        tuned_full, tuned_test = _reports(_load(tuned_path))
+        tuned_v = _load(tuned_path)
+        tuned_full, tuned_test = _reports(tuned_v)
 
     test_pct = int(TEST_FRACTION * 100)
     parts = [
@@ -385,6 +394,7 @@ def main() -> int:
             "are deliberately omitted: the model was trained on those exact failures, so "
             "improvement there would measure memorisation.\n\n"
             + _reduction_table(base_test, tuned_test)
+            + _paired_significance(_test_rows(base_v), _test_rows(tuned_v))
             + counterbalance,
         ]
 
