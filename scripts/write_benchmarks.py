@@ -277,7 +277,9 @@ def main() -> int:
         "data-writing script.\n\n" + base_test.format_markdown(),
     ]
 
-    if tuned_full is not None and tuned_test is not None:
+    if tuned_test is not None:
+        if args.adapter:
+            parts.append(_finetune_section(Path(args.adapter), args.checkpoint))
         over_b = base_test.by_category.get("overrefusal")
         over_t = tuned_test.by_category.get("overrefusal")
         counterbalance = ""
