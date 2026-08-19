@@ -221,7 +221,14 @@ These are stated because the number is only as good as its caveats.
    public benchmark. The failure rate describes this corpus, not the model in general —
    an easier corpus would produce a lower number. Cross-model comparisons are only
    meaningful when run against this same corpus.
-6. **The overall rate is composition-dependent, so never compare it across corpus
+6. **The fine-tune's validation set is small, so checkpoint choice is coarse.** The
+   checkpoint was selected on validation loss over ~32 held-out examples. At that size
+   differences of a few hundredths are noise: iterations 75/100/125 formed a plateau
+   (0.770 / 0.811 / 0.769) and only iteration 150 (0.885) was clearly worse. The claim
+   this supports is "we did not ship an over-trained checkpoint", not "this is the
+   optimal checkpoint". Only ONE checkpoint was ever scored on the test split, on
+   purpose — scoring several and reporting the best would bias the reduction upward.
+7. **The overall rate is composition-dependent, so never compare it across corpus
    versions.** It is a weighted average over categories with very different failure rates
    (injection ~92%, toxicity ~7%), so changing how many prompts each category contributes
    moves the headline number *without the model changing at all*. This is not theoretical:
