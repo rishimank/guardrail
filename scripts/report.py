@@ -70,6 +70,15 @@ def main() -> int:
         print(f"{path} is empty.")
         return 1
 
+    if args.split != "all":
+        # Re-derived from sha256(id), never read from a stored field — see split.py.
+        wanted = Split(args.split)
+        before = len(verdicts)
+        verdicts = [v for v in verdicts if split_for_id(v["id"]) is wanted]
+        if not verdicts:
+            print(f"no {args.split}-split rows among the {before} verdicts in {path}.")
+            return 1
+
     model_id = next((v.get("model_id", "") for v in verdicts if v.get("model_id")), args.sut)
     summary = aggregate(verdicts, model_id=model_id)
     report = summarize(summary, conf=args.conf)
