@@ -70,13 +70,58 @@ def _load(path: Path) -> list[dict]:
     return [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
 
 
-def _reports(verdicts: list[dict]) -> tuple[RunReport, RunReport]:
-    """(full-corpus report, test-split-only report) for one run's verdicts."""
+def _reports(verdicts: list[dict]) -> tuple[RunReport | None, RunReport]:
+    """(full-corpus report or None, test-split-only report) for one run's verdicts.
+
+    The full-corpus report is None when the run contains no train-split rows at all —
+    i.e. it was a `--split test` run. Returning None rather than a report over the test
+    rows is the point: the caller must not be able to print a "full corpus" heading
+    over a table that is nothing of the kind.
+    """
     model_id = next((v.get("model_id", "") for v in verdicts if v.get("model_id")), "")
-    _, test = partition(verdicts)
+    train, test = partition(verdicts)
+    full = summarize(aggregate(verdicts, model_id=model_id)) if train else None
+    return full, summarize(aggregate(test, model_id=model_id))
+
+
+def _finetune_section(adapter_dir: Path, checkpoint: int | None) -> str:
+    """Render the fine-tune's hyperparameters, read from the adapter's own config.
+
+    Read rather than retyped: these numbers end up in an interview answer, and a config
+    copied by hand from a shell history is exactly the kind of thing that drifts from
+    the weights it claims to describe.
+    """
+    cfg = read_config(adapter_dir)
+    lora = cfg.get("lora_parameters", {})
+    ckpt = f"iteration {checkpoint}" if checkpoint is not None else "final weights"
     return (
-        summarize(aggregate(verdicts, model_id=model_id)),
-        summarize(aggregate(test, model_id=model_id)),
+        "## Fine-tune\n\n"
+        "**Method.** LoRA (Low-Rank Adaptation) via `mlx-lm`. The base weights are frozen; "
+        "low-rank adapter matrices are trained and applied additively at inference. Only "
+        f"the last {cfg.get('num_layers')} transformer layers carry adapters, and prompt "
+        "tokens are masked out of the loss (`mask_prompt`), so the model is trained on what "
+        "it should *generate*, never on reproducing the attack text it was shown.\n\n"
+        f"| setting | value |\n|---|---|\n"
+        f"| base model | `{cfg.get('model')}` |\n"
+        f"| adapter | `{adapter_dir}` ({ckpt}) |\n"
+        f"| rank | {lora.get('rank')} |\n"
+        f"| adapted layers | {cfg.get('num_layers')} |\n"
+        f"| iterations trained | {cfg.get('iters')} |\n"
+        f"| batch size | {cfg.get('batch_size')} |\n"
+        f"| learning rate | {cfg.get('learning_rate')} |\n"
+        f"| prompt masked in loss | {cfg.get('mask_prompt')} |\n\n"
+        "**Training data.** Mined from the BASELINE run's own failures on the TRAIN split "
+        "only (`scripts/mine_failures.py`), which ends in a hard assertion that no TEST-split "
+        "id reached the training set. Corrected target responses were written by "
+        "`claude-haiku-4-5` conditioned on each prompt's authored `ground_truth` — "
+        "deliberately not templated, because ~150 near-identical refusals would teach a "
+        "refusal template and drive the overrefusal category up. Benign prompts the base "
+        "model already answered correctly were mixed in as ballast, so that refusing "
+        "everything is not the cheapest way to reduce the violation rate.\n\n"
+        "**Checkpoint selection.** Chosen on VALIDATION loss (a slice held out of the train "
+        "side), never on the test split — selecting a checkpoint by its test score is a "
+        "softer form of the leak this project's split exists to prevent, and would bias the "
+        "reduction upward."
     )
 
 
