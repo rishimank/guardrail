@@ -234,7 +234,13 @@ build the seam *before* you need it.
 
 ## Repo & workflow
 
-- Repo: **`rishimank/guardrail`** (private).
+- Repo: **`rishimank/guardrail`** — **PUBLIC** (confirmed 2026-08-19; it was created private
+  and this file said so until then). Everything pushed is world-readable, including
+  `training/*.jsonl`, which holds working injection payloads paired with correct refusals.
+  That is intentional — it is a portfolio project and a defensive dataset — but it raises the
+  bar on the secrets rule below: a leaked key here is leaked publicly, not just internally.
+  `data/` (the 662-prompt corpus) is **not gitignored but has never been committed**; leave
+  it that way unless the owner asks otherwise.
 - **Auto-commit hook** (`.claude/settings.json`): commits after every Write/Edit, but
   **never pushes**. Pushing is manual — typically once per completed phase, and only when
   the owner OKs it.
