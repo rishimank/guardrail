@@ -132,6 +132,27 @@ def test_resume_is_idempotent(tmp_path: Path) -> None:
     assert summary.n == 4
 
 
+class _Relabelled:
+    """A MockSUT wearing a different model_id — stands in for a second LoRA checkpoint.
+
+    MockSUT's model_id is a constant property, so it cannot impersonate two models on
+    its own. This wrapper is the minimum needed to exercise the resume guard without
+    loading any weights: same responses, different label.
+    """
+
+    def __init__(self, model_id: str) -> None:
+        self._inner = MockSUT(responses={}, default_reply="different weights")
+        self._model_id = model_id
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    def generate(self, prompt: str, **kw: object) -> object:
+        r = self._inner.generate(prompt, **kw)  # type: ignore[arg-type]
+        return dataclasses.replace(r, model_id=self._model_id)
+
+
 def test_resume_refuses_to_mix_models(tmp_path: Path) -> None:
     """The Phase 6 footgun: two checkpoints, one run directory.
 
@@ -140,32 +161,41 @@ def test_resume_refuses_to_mix_models(tmp_path: Path) -> None:
     with the NEW model whose every row came from the OLD one. No error, no warning, and
     a reduction attributed to weights that never produced it.
     """
-    import pytest
-
     corpus, metrics = _corpus(), _fake_metrics()
     run_corpus(_scripted_sut(), corpus, tmp_path, metrics=metrics)
 
-    other = MockSUT(responses={}, default_reply="different weights")
-    other._model_id = "qwen+v2@125"  # type: ignore[attr-defined]
+    other = _Relabelled("qwen+v2@125")
     with pytest.raises(ValueError, match="Resume matches on id only"):
-        generate_responses(other, corpus, tmp_path / "responses.jsonl")
+        generate_responses(other, corpus, tmp_path / "responses.jsonl")  # type: ignore[arg-type]
 
 
 def test_resume_guard_names_both_models(tmp_path: Path) -> None:
-    import pytest
-
+    # The message has to say what is banked AND what is being asked for, or the reader
+    # cannot tell which of the two run directories is the wrong one.
     run_corpus(_scripted_sut(), _corpus(), tmp_path, metrics=_fake_metrics())
-    other = MockSUT(responses={})
-    other._model_id = "qwen+v2@125"  # type: ignore[attr-defined]
-    with pytest.raises(ValueError, match="qwen\\+v2@125"):
-        generate_responses(other, _corpus(), tmp_path / "responses.jsonl")
+    with pytest.raises(ValueError, match=r"mock.*qwen\+v2@125|qwen\+v2@125.*mock"):
+        generate_responses(
+            _Relabelled("qwen+v2@125"),  # type: ignore[arg-type]
+            _corpus(),
+            tmp_path / "responses.jsonl",
+        )
+
+
+def test_same_model_still_resumes(tmp_path: Path) -> None:
+    # The guard must fire ONLY on a genuine mismatch: re-running the same SUT into its
+    # own directory is the normal crash-recovery path and must stay free.
+    sut, corpus = _scripted_sut(), _corpus()
+    generate_responses(sut, corpus, tmp_path / "responses.jsonl")
+    assert generate_responses(sut, corpus, tmp_path / "responses.jsonl") == 0
 
 
 def test_fresh_directory_is_not_blocked_by_the_guard(tmp_path: Path) -> None:
-    # The guard must only fire on a genuine mismatch — an empty dir has no banked
-    # model to conflict with, so a first run of any SUT proceeds normally.
-    n = generate_responses(_scripted_sut(), _corpus(), tmp_path / "responses.jsonl")
-    assert n == 4
+    # An empty dir has no banked model to conflict with, so a first run proceeds.
+    assert generate_responses(
+        _Relabelled("qwen+v2@125"),  # type: ignore[arg-type]
+        _corpus(),
+        tmp_path / "responses.jsonl",
+    ) == 4
 
 
 def test_aggregate_counts_only() -> None:
