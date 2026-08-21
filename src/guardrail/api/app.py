@@ -401,22 +401,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "the gate said no" with "the gate is broken" — and a CI job must be able to tell
         those apart, because one blocks a merge and the other pages whoever owns this.
         """
-        run = gate_mod.RunCounts(
-            model_id=req.model_id,
-            by_category={
-                cat: gate_mod.Counts(n=c.n, failures=c.failures)
-                for cat, c in req.categories.items()
-            },
-        )
+        # Counts() rejects impossible input (failures > n, negatives). That is a bad
+        # REQUEST, not a server fault, so it must surface as 422 — a 500 here would page
+        # whoever owns the service for what is actually a caller's malformed payload.
+        def to_counts(blocks: dict[str, Any]) -> dict[str, gate_mod.Counts]:
+            try:
+                return {
+                    cat: gate_mod.Counts(n=c.n, failures=c.failures)
+                    for cat, c in blocks.items()
+                }
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+                ) from exc
+
+        run = gate_mod.RunCounts(model_id=req.model_id, by_category=to_counts(req.categories))
 
         profile_name = req.baseline_profile
         if req.baseline is not None:
             baseline = gate_mod.RunCounts(
-                model_id="(inline)",
-                by_category={
-                    cat: gate_mod.Counts(n=c.n, failures=c.failures)
-                    for cat, c in req.baseline.items()
-                },
+                model_id="(inline)", by_category=to_counts(req.baseline)
             )
             profile_name = "(inline)"
         else:
