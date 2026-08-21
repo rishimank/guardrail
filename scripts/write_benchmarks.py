@@ -490,6 +490,9 @@ def main() -> int:
     out = REPO / args.out
     out.write_text("\n\n".join(parts).rstrip() + "\n")
     print(f"wrote {out} ({base_full.n} baseline rows, test split n={base_test.n})")
+
+    baselines = _write_baselines(args.baseline, args.tuned)
+    print(f"wrote {baselines} (machine-readable counts for the /gate endpoint)")
     return 0
 
 
