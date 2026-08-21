@@ -563,7 +563,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except RunBusyError as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
-        metrics = metrics_dep(request_for_metrics(app)) if may_judge else None
+        metrics = ensure_metrics() if may_judge else None
         registry = app.state.registry
 
         def work(progress: Callable[[str], None]) -> dict[str, Any]:
