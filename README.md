@@ -212,10 +212,26 @@ src/guardrail/
   stats/        Wilson score intervals
   report.py     counts -> rates + confidence intervals -> markdown
   split.py      sha256(id) -> TRAIN | TEST; the leak-proof held-out split
-  api/          FastAPI service
+  api/          the service: app.py (routes) + gate.py (PURE decision logic, no HTTP)
+                schemas.py (wire contract) + runs.py (job registry) + settings.py
+benchmarks/     baselines.json (MEASURED counts, generated) + gate_policy.json (CHOSEN
+                thresholds, hand-edited) — kept apart so a script can't move a threshold
 calibration/    judge-vs-reference-judge agreement (κ) report
 training/       mined failures -> LoRA dataset -> mlx-lm train
 runs/           banked responses + verdicts (gitignored)
-scripts/        ask, run_eval, report, write_benchmarks, mine_failures, calibration
-tests/          70 tests, all offline against MockSUT
+scripts/        serve, gate, run_eval, write_benchmarks, mine_failures, ask, calibration
+tests/          133 tests, all offline against MockSUT — no network, no API key, $0
 ```
+
+## Running the service
+
+```bash
+venv/bin/python scripts/serve.py          # mock SUT, free, offline -> /docs
+venv/bin/python scripts/gate.py --run runs/lora-v2-ck125 --profile lora-v2-ck125
+```
+
+`scripts/gate.py` is the CI entrypoint and does **not** go through HTTP — the gate is a pure
+function, so a build can call it with no server to start. It exits **0** (ship), **1** (a real
+regression — block the merge) or **2** (the gate itself is broken — missing baseline, corrupt
+counts). Those last two are separate codes on purpose: the reflex fix for a red build is to
+question the threshold, and that is the wrong response to a missing `baselines.json`.
