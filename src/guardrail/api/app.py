@@ -611,23 +611,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-class _AppRequestShim:
-    """Minimal stand-in so the metrics dependency can be reused outside DI.
-
-    `metrics_dep` is written as a FastAPI dependency (it takes a Request) but two
-    endpoints need it conditionally — only when judging is actually permitted — and a
-    declared `Depends(metrics_dep)` would build the judge on EVERY request, including
-    the free deterministic ones. This shim lets those endpoints call it on demand.
-    """
-
-    def __init__(self, app: FastAPI) -> None:
-        self.app = app
-
-
-def request_for_metrics(app: FastAPI) -> Any:
-    return _AppRequestShim(app)
-
-
 # The ASGI entrypoint uvicorn is pointed at: `uvicorn guardrail.api.app:app`.
 app = create_app()
 
