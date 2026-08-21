@@ -365,7 +365,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
 
         # Deterministic categories pass metrics=None and never touch the judge.
-        metrics = None if deterministic else metrics_dep(request_for_metrics(app))
+        metrics = None if deterministic else ensure_metrics()
         verdict = grade(entry, response.text, metrics)
         return EvaluateResponse(
             id=entry.id,
