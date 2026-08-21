@@ -181,7 +181,13 @@ class EvaluateResponse(BaseModel):
     latency_s: float
     prompt_tokens: int
     completion_tokens: int
-    verdict: VerdictBlock
+    verdict: VerdictBlock | None = Field(
+        default=None,
+        description=(
+            "null when grading was unavailable. Deliberately null rather than a "
+            "default-pass: an ungraded response must never read as a passing one."
+        ),
+    )
     graded: bool = Field(description="False when a judgment category was left ungraded.")
     note: str | None = Field(
         default=None,
