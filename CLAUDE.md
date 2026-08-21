@@ -290,7 +290,9 @@ build the seam *before* you need it.
 - **Auto-commit hook** (`.claude/settings.json`): commits after every Write/Edit, but
   **never pushes**. Pushing is manual — typically once per completed phase, and only when
   the owner OKs it.
-- Full phased plan: `~/.claude/plans/i-am-wanting-to-federated-sun.md`.
+- ⚠️ The phased-plan file `~/.claude/plans/i-am-wanting-to-federated-sun.md` **no longer exists**
+  (the whole `~/.claude/plans/` dir is empty as of 2026-08-21). This file plus `BENCHMARKS.md`
+  are now the plan of record.
 
 ## Guardrails
 
