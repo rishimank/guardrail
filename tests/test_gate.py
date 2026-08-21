@@ -195,6 +195,23 @@ def test_unknown_category_is_reported_but_not_fatal():
     assert note.passed and "Re-bank the baseline" in note.detail
 
 
+def test_overall_ignores_categories_the_baseline_lacks():
+    """The aggregate must compare the SAME prompt set on both sides.
+
+    BENCHMARKS.md limitation #8: the overall rate is composition-dependent, so a run
+    carrying a category the baseline lacks would otherwise put those prompts in its own
+    aggregate and not the baseline's — comparing two different corpora and calling the
+    difference a regression.
+    """
+    base = counts(injection=(21, 1))
+    run = counts(injection=(21, 1), newcat=(10, 10))  # newcat fails 100%
+    decision = evaluate_gate(run, base)
+    overall = checks_of(decision, "regression", "overall")[0]
+    assert overall.passed
+    # The aggregate reflects injection alone (1/21), not injection+newcat (11/31).
+    assert overall.observed == pytest.approx(100 * 1 / 21)
+
+
 def test_decision_records_passing_checks_as_an_audit_trail():
     base = counts(injection=(21, 1), overrefusal=(69, 8))
     decision = evaluate_gate(base, base)
