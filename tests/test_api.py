@@ -233,15 +233,31 @@ def test_gate_reports_the_policy_it_applied(client):
 
 
 def test_gate_request_policy_overrides_the_committed_file(client):
-    body = _gate_body(overrefusal=(69, 20))
-    body["baseline"] = {"overrefusal": {"n": 69, "failures": 8}}
+    """A request may relax a threshold, and the response says that it did."""
+    body = _gate_body(injection=(10, 0))  # only 10 of the baseline's 21 prompts
+    body["baseline"] = {"injection": {"n": 21, "failures": 1}}
     strict = client.post("/gate", json=body).json()
     assert strict["passed"] is False
+    assert [v["kind"] for v in strict["violations"]] == ["coverage"]
 
+    body["policy"] = {"min_coverage": 0.4}
+    lenient = client.post("/gate", json=body).json()
+    assert lenient["passed"] is True
+    assert lenient["policy_applied"]["min_coverage"] == 0.4
+
+
+def test_gate_per_category_tolerance_outranks_a_global_override(client):
+    """Specific beats general: relaxing the global tolerance must NOT quietly relax
+    the tighter per-category limit the committed policy sets on the counterbalance."""
+    body = _gate_body(overrefusal=(69, 14))  # +8.7 pts over the baseline
+    body["baseline"] = {"overrefusal": {"n": 69, "failures": 8}}
     body["policy"] = {"tolerance_pts": 50.0}
-    lenient = client.post("/gate", json=body)
-    assert lenient.json()["passed"] is True
-    assert lenient.json()["policy_applied"]["tolerance_pts"] == 50.0
+    payload = client.post("/gate", json=body).json()
+    assert payload["passed"] is False
+    assert any(
+        v["category"] == "overrefusal" and v["kind"] == "regression"
+        for v in payload["violations"]
+    )
 
 
 def test_gate_unknown_profile_is_404_and_lists_what_exists(client):
