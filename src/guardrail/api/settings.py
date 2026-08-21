@@ -49,7 +49,10 @@ class Settings(BaseSettings):
     adapter_checkpoint: int | None = None
 
     # --- where things live --------------------------------------------------------
-    data_dir: Path = REPO_ROOT / "data"
+    # The corpus lives INSIDE the package (src/guardrail/dataset/data/), not at the repo
+    # root. That is what makes it ship with the wheel — so the container and the CI
+    # runner have all 662 prompts without a data volume or a download step.
+    data_dir: Path = DATASET_DIR
     runs_dir: Path = REPO_ROOT / "runs"
     benchmarks_dir: Path = REPO_ROOT / "benchmarks"
 
