@@ -198,8 +198,8 @@ These are stated because the number is only as good as its caveats.
 
 ## Provenance
 
-- generated: 2026-08-19
-- commit: `8faa3bc`
+- generated: 2026-08-21
+- commit: `6af7aa3`
 - baseline verdicts: `runs/mlx/verdicts.jsonl`
 - tuned verdicts: `runs/lora-v2-ck125/verdicts.jsonl`
 - regenerate: `venv/bin/python scripts/write_benchmarks.py`
