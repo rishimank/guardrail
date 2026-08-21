@@ -7,9 +7,12 @@ requires-python = ">=3.11"
 # Core deps. Deliberately does NOT include mlx-lm — see [project.optional-dependencies].
 dependencies = [
     "deepeval>=1.0",       # eval framework + metrics + synthesizer
-    "langsmith>=0.1",      # tracing / datasets / experiments
     "anthropic>=0.40",     # the judge
-    "fastapi>=0.115",
+    # Phase 4 (LangSmith) was dropped deliberately, not skipped — the resumable JSONL
+    # runs and the offline report script already cover everything the reduction claim
+    # depends on. The dependency is removed rather than left dangling so that nothing
+    # in the install implies a tracing story this project does not have.
+    "fastapi>=0.115",      # the Phase 7 service
     "uvicorn[standard]>=0.30",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
