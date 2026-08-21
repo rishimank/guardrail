@@ -281,8 +281,12 @@ build the seam *before* you need it.
   `training/*.jsonl`, which holds working injection payloads paired with correct refusals.
   That is intentional — it is a portfolio project and a defensive dataset — but it raises the
   bar on the secrets rule below: a leaked key here is leaked publicly, not just internally.
-  `data/` (the 662-prompt corpus) is **not gitignored but has never been committed**; leave
-  it that way unless the owner asks otherwise.
+  ⚠️ **Corpus location — corrected 2026-08-21.** This file used to say the corpus was at a
+  repo-root `data/` that "has never been committed". Both halves were wrong. The corpus lives
+  **inside the package** at `src/guardrail/dataset/data/` (`loader.DATASET_DIR`), and all 662
+  rows **are tracked in git** and are therefore public. Consequence worth knowing: the corpus
+  ships in the wheel, so the Docker image and CI runner get all 662 prompts with no data volume
+  and no download — which is what makes a free offline eval possible in CI at all.
 - **Auto-commit hook** (`.claude/settings.json`): commits after every Write/Edit, but
   **never pushes**. Pushing is manual — typically once per completed phase, and only when
   the owner OKs it.
