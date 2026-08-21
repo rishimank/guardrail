@@ -209,9 +209,9 @@ API against the installed package in Phase 3.1 — do not trust recalled/blog sy
 | 2 | DeepEval Synthesizer | 500+ adversarial prompts, 6 categories, authored ground truth | ✅ |
 | 3 | DeepEval + Claude | Metrics, judge, **judge calibration (κ = 0.782)** | ✅ |
 | ~~4~~ | ~~LangSmith~~ | ~~Tracing, datasets, experiments~~ | ❌ **dropped** |
-| 5 | scipy | Baseline measurement + Wilson CIs → `BENCHMARKS.md` | 🔄 5a–5d left |
-| 6 | mlx-lm LoRA | Fine-tune on mined failures → measured reduction | ⬜ |
-| **7** | **FastAPI** | **Eval pipeline as a service + `/gate`** | ⬜ **deep-dive** |
+| 5 | scipy | Baseline measurement + Wilson CIs → `BENCHMARKS.md` | ✅ |
+| 6 | mlx-lm LoRA | Fine-tune on mined failures → **74.2% reduction, p≈1e-10** | ✅ |
+| **7** | **FastAPI** | **Eval pipeline as a service + `/gate`** | ✅ **deep-dive** |
 | **8** | **Docker** | **Containerize (linux, MockSUT, no mlx)** | ⬜ **deep-dive** |
 | **9** | **GitHub Actions** | **CI + eval gate that fails the build on regression** | ⬜ **deep-dive** |
 
