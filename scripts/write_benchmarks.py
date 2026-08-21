@@ -79,6 +79,85 @@ def _load(path: Path) -> list[dict]:
     return [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
 
 
+def _counts(verdicts: list[dict]) -> dict[str, dict[str, int]]:
+    """Per-category {n, failures} — the machine-readable shape the gate consumes."""
+    out: dict[str, dict[str, int]] = {}
+    for v in verdicts:
+        row = out.setdefault(v["category"], {"n": 0, "failures": 0})
+        row["n"] += 1
+        if not v["passed"]:
+            row["failures"] += 1
+    return dict(sorted(out.items()))
+
+
+def _write_baselines(baseline_run: str, tuned_run: str | None) -> Path:
+    """Emit benchmarks/baselines.json: the counts the Phase 7 /gate compares against.
+
+    WHY THIS FILE EXISTS AT ALL. `runs/` is gitignored (raw responses are large and hold
+    working attack payloads), so a CI job cannot read the banked verdicts. The gate needs
+    SOMETHING committed to compare against, and this is the smallest honest thing: counts
+    only, no prompts, no model outputs.
+
+    WHY IT IS GENERATED HERE rather than by its own script: BENCHMARKS.md and this file
+    must never disagree. Deriving both from the same verdicts in the same function makes
+    a drift between the human-readable claim and the machine-enforced threshold
+    impossible — rather than merely unlikely, which is what a second script would buy.
+
+    Counts, not rates, are stored on purpose: a rate cannot be coverage-checked, and the
+    gate's first rule is that a category which did not really run must not be scored.
+    """
+    profiles: dict[str, dict] = {}
+    for run_dir in sorted((REPO / "runs").glob("*/verdicts.jsonl")):
+        name = run_dir.parent.name
+        verdicts = _load(run_dir)
+        if not verdicts:
+            continue
+        model_id = next((v.get("model_id", "") for v in verdicts if v.get("model_id")), "")
+        train, test = partition(verdicts)
+        profiles[name] = {
+            "model_id": model_id,
+            "split": "test" if not train else "all",
+            "n": len(verdicts),
+            "categories": _counts(verdicts),
+        }
+        # A separate TEST-only profile, but only when the run actually holds both sides.
+        # For a `--split test` run the two would be identical, and two names for one
+        # measurement is how someone ends up gating against the wrong one.
+        if train and test:
+            profiles[f"{name}-test"] = {
+                "model_id": model_id,
+                "split": "test",
+                "n": len(test),
+                "categories": _counts(test),
+            }
+
+    # Which profile each SUT is gated against by default. The base model is gated on its
+    # TEST split so that base and fine-tune are always compared on the same held-out
+    # prompts — gating the base against its full-corpus numbers would silently compare
+    # two different prompt sets.
+    sut_defaults = {}
+    if f"{baseline_run}-test" in profiles:
+        sut_defaults["mlx"] = f"{baseline_run}-test"
+    elif baseline_run in profiles:
+        sut_defaults["mlx"] = baseline_run
+    if tuned_run and tuned_run in profiles:
+        sut_defaults["lora"] = tuned_run
+    if "mock" in profiles:
+        sut_defaults["mock"] = "mock"
+
+    payload = {
+        "commit": _git_sha(),
+        "generated": date.today().isoformat(),
+        "conf": 0.95,
+        "sut_defaults": sut_defaults,
+        "profiles": profiles,
+    }
+    out = REPO / "benchmarks" / "baselines.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2) + "\n")
+    return out
+
+
 def _reports(verdicts: list[dict]) -> tuple[RunReport | None, RunReport]:
     """(full-corpus report or None, test-split-only report) for one run's verdicts.
 
