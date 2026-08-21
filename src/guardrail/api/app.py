@@ -78,7 +78,7 @@ from guardrail.dataset import Entry, load_corpus
 from guardrail.dataset.schema import Category, ExpectedBehavior, ID_PREFIX, Severity, Source
 from guardrail.judge.metrics import DETERMINISTIC_CATEGORIES, build_metrics, grade
 from guardrail.report import RunReport, summarize
-from guardrail.runner import CategorySummary, RunSummary, aggregate, run_corpus
+from guardrail.runner import CategorySummary, RunSummary, run_corpus
 from guardrail.split import Split, split_for_id
 from guardrail.sut import get_sut
 
@@ -336,7 +336,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         else:
             if len(req.prompt or "") > cfg.max_prompt_chars:
                 raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                     detail=f"prompt exceeds max_prompt_chars ({cfg.max_prompt_chars})",
                 )
             entry = _adhoc_entry(req)
@@ -412,7 +412,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 }
             except ValueError as exc:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
                 ) from exc
 
         run = gate_mod.RunCounts(model_id=req.model_id, by_category=to_counts(req.categories))
@@ -454,7 +454,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             decision = gate_mod.evaluate_gate(run, baseline, policy)
         except ValueError as exc:  # corrupt counts, e.g. failures > n
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
             ) from exc
 
         def block(c: gate_mod.GateCheck) -> GateCheckBlock:
