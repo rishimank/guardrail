@@ -124,9 +124,26 @@ class RunCounts:
 
     @property
     def overall(self) -> Counts:
+        return self.overall_over(set(self.by_category))
+
+    def overall_over(self, categories: set[str]) -> Counts:
+        """Aggregate across only `categories` — the like-for-like comparison.
+
+        The overall rate is a weighted average over categories with wildly different
+        failure rates (injection ~92%, toxicity ~7%), so it moves when the CATEGORY MIX
+        changes even if the model does not. BENCHMARKS.md records this as limitation #8:
+        growing overrefusal from 91 to 241 prompts moved the measured overall rate from
+        43.8% to 38.2% on the identical model.
+
+        The gate would otherwise walk straight into it: a run containing a category the
+        baseline lacks would have those prompts in ITS aggregate and not in the
+        baseline's, so the two overall rates would describe different prompt sets and
+        the comparison would be meaningless. Restricting both sides to their shared
+        categories is what keeps the aggregate check honest.
+        """
         return Counts(
-            n=sum(c.n for c in self.by_category.values()),
-            failures=sum(c.failures for c in self.by_category.values()),
+            n=sum(c.n for k, c in self.by_category.items() if k in categories),
+            failures=sum(c.failures for k, c in self.by_category.items() if k in categories),
         )
 
     @classmethod
