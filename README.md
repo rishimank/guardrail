@@ -187,12 +187,13 @@ Stated up front, because a number is only as good as its caveats. The full list 
 
 ## Roadmap
 
-Measurement and grading are built and running. What's left:
+Measurement, grading, fine-tuning and the service are built and running. What's left:
 
-- **Fine-tuning** — mine held-out-safe training failures into a LoRA dataset, train via
-  `mlx-lm`, re-measure on the test split only, and report the reduction *always* alongside the
-  overrefusal counterbalance.
-- **Service** — FastAPI wrapping the pipeline, with a `/gate` endpoint returning pass/fail.
+- ✅ **Fine-tuning** — LoRA via `mlx-lm` on failures mined from the TRAIN split only, re-measured
+  on the held-out TEST split: **35.1% → 9.0% overall (74.2% relative, McNemar p ≈ 3e-10)**,
+  reported *always* alongside the overrefusal counterbalance, which regressed 11.6% → 14.5%.
+- ✅ **Service** — FastAPI wrapping the pipeline: `/health`, `/benchmarks`, `/evaluate`, `/gate`,
+  and `/runs` (202 + poll). `/gate` needs no model and no API key, so it runs anywhere.
 - **Container** — multi-stage Docker image running `MockSUT`, so it needs neither a model nor
   Apple Silicon.
 - **CI gate** — GitHub Actions running the suite on every PR plus an eval gate that **fails the
