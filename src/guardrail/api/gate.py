@@ -368,8 +368,10 @@ def evaluate_gate(
             )
         )
 
-    # RULE 4 — the same two rules on the aggregate.
-    run_all, base_all = run.overall, baseline.overall
+    # RULE 4 — the same two rules on the aggregate, computed over the categories the two
+    # runs SHARE so that both sides describe the same prompt set. See overall_over().
+    shared = set(run.by_category) & set(baseline.by_category)
+    run_all, base_all = run.overall_over(shared), baseline.overall_over(shared)
     if run_all.n:
         overall_limit = base_all.rate_pts + active.tolerance_for("overall")
         overall_regressed = run_all.rate_pts > overall_limit
