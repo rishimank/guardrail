@@ -239,14 +239,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         ) from exc
         return state.sut
 
-    def metrics_dep(request: Request) -> dict[Category, Any]:
-        """The judge, built once per process and only when it is permitted to exist."""
-        state = request.app.state
-        if state.metrics is None:
-            with state.load_lock:
-                if state.metrics is None:
-                    state.metrics = build_metrics()
-        return state.metrics  # type: ignore[no-any-return]
+    def ensure_metrics() -> dict[Category, Any]:
+        """The judge, built at most once per process and only when actually needed.
+
+        Deliberately NOT a `Depends(...)` dependency: a declared dependency runs on every
+        request to the endpoint, so it would construct the judge even for the free
+        deterministic categories that never use it. Building the judge is the moment an
+        API key becomes required, so it must happen only on the paths that truly grade.
+        """
+        if app.state.metrics is None:
+            with app.state.load_lock:
+                if app.state.metrics is None:
+                    app.state.metrics = build_metrics()
+        return app.state.metrics  # type: ignore[no-any-return]
 
     def baselines_dep(request: Request) -> dict[str, Any]:
         cfg: Settings = request.app.state.settings
