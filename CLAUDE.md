@@ -27,6 +27,17 @@ not shipping. New cadence:
 - **Explain after, not during.** One walkthrough per batch covering what was built and *why it
   is shaped that way* — the design decisions and the tradeoffs, not a line-by-line reading of
   code the owner can see in the diff.
+- ⚠️ **CORRECTED 2026-08-21, after Phase 7.** "Explain after" was applied too literally on a
+  deep-dive phase: Phase 7 was built end-to-end and then summarised, and the owner's feedback was
+  *"I want shipping speed AND understanding of the phase — you just built everything with no
+  explanation."* A post-hoc summary of decisions already made is not teaching; the owner cannot
+  defend a design they only saw justified once it was final. **On Phases 8 and 9 the order is:**
+  **(1)** concepts first, before any file is written — what the technology is, the handful of
+  terms, what the phase must accomplish (a few minutes' read, not a tutorial); **(2)** the design
+  and its forks, with recommendations, so the choice is made knowingly; **(3)** build the whole
+  batch in one uninterrupted go — batching does NOT relax; **(4)** walk the actual diff, tying
+  each piece back to (1). Speed is unaffected — the teaching *brackets* the build rather than
+  replacing it.
 - **Depth is now weighted to Phases 7–9** (FastAPI, Docker, GitHub Actions). These are the
   phases the owner most needs to be able to talk through in an interview and has the least
   prior exposure to, so they get the long explanations. Phases 5–6 get short ones.
