@@ -28,6 +28,8 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from guardrail.dataset.loader import DATASET_DIR
+
 # The repo root: src/guardrail/api/settings.py -> up four levels.
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
