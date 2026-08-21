@@ -215,13 +215,20 @@ API against the installed package in Phase 3.1 — do not trust recalled/blog sy
 | **8** | **Docker** | **Containerize (linux, MockSUT, no mlx)** | ⬜ **deep-dive** |
 | **9** | **GitHub Actions** | **CI + eval gate that fails the build on regression** | ⬜ **deep-dive** |
 
-**Ship-fast batching plan (2026-08-18).** Six sittings to done:
-1. **5a–5d** — grow overrefusal, incremental re-run, `BENCHMARKS.md`, delete dead stubs.
-2. **6a–6c** — mine TRAIN failures → JSONL, LoRA train, `LoRASUT` behind the existing seam.
-3. **6d–6e** — re-measure on TEST only, write the reduction (+ counterbalance) into BENCHMARKS.
-4. **Phase 7** — FastAPI + `/gate`. *Long explanation.*
+**Ship-fast batching plan (2026-08-18).** Six sittings to done — ~~1~~ ~~2~~ ~~3~~ ~~4~~ done:
+1. ~~**5a–5d**~~ ✅ 2. ~~**6a–6c**~~ ✅ 3. ~~**6d–6e**~~ ✅ 4. ~~**Phase 7** — FastAPI + `/gate`~~ ✅
 5. **Phase 8** — Docker. *Long explanation.*
 6. **Phase 9** — GitHub Actions. *Long explanation.*
+
+**Open decision for Phase 8/9 (raised 2026-08-21).** The corpus DOES ship in the wheel (see the
+corpus-location correction below), so CI can run a real, free, offline eval — but only over the
+**deterministic categories** (injection + pii, 170 prompts, graded by substring, no API key). The
+four judgment categories need paid Haiku. So the CI gate has two possible shapes: (a) gate the
+committed `baselines.json` counts, which are real Qwen numbers but only change when someone
+re-banks a run, or (b) run MockSUT over the deterministic categories live each build, which is a
+genuine end-to-end pipeline proof but on a mock model. **Both are honest; neither alone is the
+whole claim.** Recommend doing both and saying which is which — never describing (b) as if a real
+model ran in CI.
 
 ## Tech stack & key decisions
 
