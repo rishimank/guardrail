@@ -314,3 +314,9 @@ Run with the venv's Python (no activation needed): `venv/bin/python <script>`.
 - Recreate env: `venv/bin/pip install -e ".[dev,mlx]"`  (drop `mlx` off Apple Silicon)
 - Tests: `venv/bin/pytest`
 - Lint/type: `venv/bin/ruff check .` · `venv/bin/mypy src`
+- **Serve** (free/offline by default; open `/docs`): `venv/bin/python scripts/serve.py`
+- **Gate a run** (free, offline, no server — the Phase 9 command; exit 0/1/2):
+  `venv/bin/python scripts/gate.py --run runs/lora-v2-ck125 --profile lora-v2-ck125`
+- **Regenerate the numbers** (BENCHMARKS.md *and* `benchmarks/baselines.json`, one command —
+  they must never drift):
+  `venv/bin/python scripts/write_benchmarks.py --baseline mlx --tuned lora-v2-ck125 --adapter adapters/v2 --checkpoint 125`
