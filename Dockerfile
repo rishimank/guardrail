@@ -124,29 +124,29 @@ LABEL org.opencontainers.image.title="guardrail" \
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/install/bin:$PATH \
-    PYTHONPATH=/install/lib/python3.13/site-packages \
-    #
-    # DeepEval writes telemetry/state files next to the working directory on import.
-    # Under a non-root user that is a permission error at import time — a container
-    # that dies before reaching any of our code. Opting out is both the fix and the
-    # right default for a build agent that nobody is watching.
-    DEEPEVAL_TELEMETRY_OPT_OUT=YES \
-    ERROR_REPORTING=NO \
-    #
-    # COST SAFETY, RESTATED IN THE IMAGE. Settings already defaults to these, but a
-    # default inherited three layers down is easy to lose in a refactor and impossible
-    # to see in `docker inspect`. Written explicitly so that "this image cannot spend
-    # money" is an inspectable property of the artifact, not a claim about its source.
-    GUARDRAIL_SUT=mock \
-    GUARDRAIL_ALLOW_JUDGE=false \
-    #
-    # api/settings.py derives REPO_ROOT from __file__, which is correct for an editable
-    # install and WRONG for a real wheel: here __file__ lives in site-packages, so
-    # REPO_ROOT would resolve to /install/lib/python3.13 and /benchmarks would 404.
-    # These two variables are the supported fix — pydantic-settings reads every field
-    # from GUARDRAIL_*, which is exactly what settings.py's docstring says the
-    # container should do: configure through the environment, not a baked config file.
-    GUARDRAIL_BENCHMARKS_DIR=/app/benchmarks \
+    PYTHONPATH=/install/lib/python3.13/site-packages
+
+# DeepEval writes telemetry/state files next to the working directory on import. Under
+# a non-root user that is a permission error at import time — a container that dies
+# before reaching any of our code. Opting out is both the fix and the right default for
+# a build agent that nobody is watching.
+ENV DEEPEVAL_TELEMETRY_OPT_OUT=YES \
+    ERROR_REPORTING=NO
+
+# COST SAFETY, RESTATED IN THE IMAGE. Settings already defaults to these, but a default
+# inherited three layers down is easy to lose in a refactor and impossible to see in
+# `docker inspect`. Written explicitly so that "this image cannot spend money" is an
+# inspectable property of the artifact, not a claim about its source.
+ENV GUARDRAIL_SUT=mock \
+    GUARDRAIL_ALLOW_JUDGE=false
+
+# api/settings.py derives REPO_ROOT from __file__, which is correct for an editable
+# install and WRONG for a real wheel: here __file__ lives in site-packages, so REPO_ROOT
+# would resolve to /install/lib/python3.13 and /benchmarks would 404. These two
+# variables are the supported fix — pydantic-settings reads every field from GUARDRAIL_*,
+# which is exactly what settings.py's docstring says the container should do: configure
+# through the environment, not a baked config file.
+ENV GUARDRAIL_BENCHMARKS_DIR=/app/benchmarks \
     GUARDRAIL_RUNS_DIR=/app/runs
 
 COPY --from=builder /install /install
