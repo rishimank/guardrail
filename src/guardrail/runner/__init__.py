@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from guardrail.dataset.schema import Category, Entry
-from guardrail.judge.metrics import build_metrics, grade
+from guardrail.judge.metrics import DETERMINISTIC_CATEGORIES, build_metrics, grade
 from guardrail.sut.base import SUT
 
 Progress = Callable[[str], None]
