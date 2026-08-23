@@ -80,7 +80,18 @@ def _to_counts(verdicts: list[dict]) -> RunCounts:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--run", required=True, help="run directory, or a verdicts.jsonl path")
+    source = ap.add_mutually_exclusive_group(required=True)
+    source.add_argument("--run", help="run directory, or a verdicts.jsonl path")
+    source.add_argument(
+        "--run-profile",
+        default=None,
+        help=(
+            "gate one COMMITTED profile against another, with no run directory at all. "
+            "`--run-profile lora-v2-ck125 --profile mlx-test` asks the question the whole "
+            "project exists to answer — does the shipped model still beat the base model "
+            "and still meet the ship criteria? — from files in git, for $0, offline."
+        ),
+    )
     ap.add_argument(
         "--profile",
         default=None,
