@@ -221,7 +221,9 @@ calibration/    judge-vs-reference-judge agreement (κ) report
 training/       mined failures -> LoRA dataset -> mlx-lm train
 runs/           banked responses + verdicts (gitignored)
 scripts/        serve, gate, run_eval, write_benchmarks, mine_failures, ask, calibration
-tests/          133 tests, all offline against MockSUT — no network, no API key, $0
+                docker_smoke.sh — proves the image evaluates, gates and serves
+Dockerfile      3 stages: builder -> test (runs the suite IN the image) -> runtime
+tests/          141 tests, all offline against MockSUT — no network, no API key, $0
 ```
 
 ## Running the service
