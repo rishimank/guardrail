@@ -141,11 +141,26 @@ def main() -> int:
     if profile not in profiles:
         return _fail(f"unknown profile {profile!r}. Available: {sorted(profiles)}")
 
+    if args.run_profile and args.run_profile not in profiles:
+        return _fail(f"unknown run profile {args.run_profile!r}. Available: {sorted(profiles)}")
+    if args.run_profile and args.run_profile == profile:
+        # Gating a profile against itself is arithmetically guaranteed to pass, so a
+        # green result would carry no information at all. Refusing is exit 2, not exit
+        # 0: a check that cannot fail is a broken check, not a passing one.
+        return _fail(
+            f"--run-profile and --profile are both {profile!r}; comparing a profile to "
+            "itself always passes and therefore proves nothing"
+        )
+
     policy_path = REPO / args.policy
     policy = GatePolicy.load(policy_path) if policy_path.exists() else GatePolicy()
 
     try:
-        run = _to_counts(verdicts)
+        run = (
+            RunCounts.from_dict(profiles[args.run_profile])
+            if args.run_profile
+            else _to_counts(verdicts)
+        )
         baseline = RunCounts.from_dict(profiles[profile])
         decision = evaluate_gate(run, baseline, policy)
     except ValueError as exc:
