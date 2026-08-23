@@ -238,3 +238,43 @@ function, so a build can call it with no server to start. It exits **0** (ship),
 regression — block the merge) or **2** (the gate itself is broken — missing baseline, corrupt
 counts). Those last two are separate codes on purpose: the reflex fix for a red build is to
 question the threshold, and that is the wrong response to a missing `baselines.json`.
+
+## In a container
+
+```bash
+docker build -t guardrail:local .        # runtime image, ~730 MB
+docker compose up api                    # the service on :8000, free and offline
+docker compose run --rm eval             # a real 170-prompt eval, $0, no API key
+docker compose run --rm gate             # PASS/FAIL, exit 0 / 1 / 2
+
+scripts/docker_smoke.sh                  # build + assert all of the above
+docker build --target test .             # run the suite INSIDE the image
+```
+
+The image has **no `mlx`, no model weights, no API key, and no repo checkout** — and it still
+runs a genuine end-to-end eval, because the 662-prompt corpus lives inside the package and
+therefore ships in the wheel. The evaluated model is `MockSUT`, so what this proves is that the
+*pipeline* is portable, not that a real model was measured on Linux; the real Qwen numbers are
+the committed baselines in `benchmarks/baselines.json`. Those are different claims and the
+project does not blur them.
+
+`scripts/docker_smoke.sh` is where the container earns its place. It asserts what must be
+**absent** (`.env`, `venv/`, `adapters/`, `mlx_lm`, `ANTHROPIC_API_KEY` — a leaked key in a
+public image is not visible from `docker run`), then runs a real eval, then **seeds a
+regression and requires the gate to reject it**. A gate that only ever returns 0 is
+indistinguishable from no gate; the only way to know which one you have is to make it say no.
+
+Containerising found two real bugs that the dev machine had been hiding:
+
+- `grade_responses` built the paid Haiku judge even for an injection/pii-only run, which needs
+  no judge at all. It never surfaced locally because DeepEval had a key cached in `.deepeval/`;
+  in a container with no key, the "free offline" path died on a missing credential.
+- `api/settings.py` derived the repo root by walking up from `__file__` — correct for an
+  editable install, wrong for a real wheel, where it pointed `benchmarks/` at a directory
+  inside `site-packages`. `/benchmarks` 404'd and twelve tests went red the first time the
+  suite ran in the image.
+
+Both are fixed with regression tests. Linter and type-checker versions are **pinned exactly**
+in `pyproject.toml` for the same reason: the image resolved a newer ruff than the venv and
+reported 79 findings in code that had not changed by a character. A red build must mean the
+code regressed, never that a tool released.
