@@ -272,8 +272,8 @@ API against the installed package in Phase 3.1 — do not trust recalled/blog sy
 
 **Ship-fast batching plan (2026-08-18).** Six sittings to done — ~~1~~ ~~2~~ ~~3~~ ~~4~~ done:
 1. ~~**5a–5d**~~ ✅ 2. ~~**6a–6c**~~ ✅ 3. ~~**6d–6e**~~ ✅ 4. ~~**Phase 7** — FastAPI + `/gate`~~ ✅
-5. **Phase 8** — Docker. *Long explanation.*
-6. **Phase 9** — GitHub Actions. *Long explanation.*
+5. ~~**Phase 8** — Docker~~ ✅
+6. **Phase 9** — GitHub Actions. *Long explanation.* **Last sitting.**
 
 **Open decision for Phase 8/9 (raised 2026-08-21).** The corpus DOES ship in the wheel (see the
 corpus-location correction below), so CI can run a real, free, offline eval — but only over the
