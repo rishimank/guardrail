@@ -30,8 +30,33 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from guardrail.dataset.loader import DATASET_DIR
 
-# The repo root: src/guardrail/api/settings.py -> up four levels.
-REPO_ROOT = Path(__file__).resolve().parents[3]
+def _repo_root() -> Path:
+    """Where the non-package files (benchmarks/, runs/) live.
+
+    `benchmarks/` and `runs/` are the two things this project keeps OUTSIDE the package
+    on purpose: baselines.json is a committed record of measurements, and runs/ is
+    gitignored output. Neither ships in the wheel, so their location has to be found
+    rather than imported — unlike the corpus, which is inside the package and therefore
+    never needs any of this.
+
+    Walking up from __file__ is right for an editable install (the dev machine) and
+    WRONG for a real wheel: in a container __file__ sits in site-packages, so parents[3]
+    is `/usr/local/lib/python3.13` and every benchmarks path silently points at a
+    directory that does not exist. That failed as a 404 on /benchmarks and a dozen red
+    tests the first time the suite ran inside the image (Phase 8).
+
+    So the guess is VERIFIED before it is used, and falls back to the working directory,
+    which is where a deployment naturally puts these files (`WORKDIR /app` + `COPY
+    benchmarks/`). `GUARDRAIL_BENCHMARKS_DIR` / `GUARDRAIL_RUNS_DIR` override both, and
+    the container sets them explicitly — this function only decides the default.
+    """
+    candidate = Path(__file__).resolve().parents[3]
+    if (candidate / "pyproject.toml").is_file() or (candidate / "benchmarks").is_dir():
+        return candidate
+    return Path.cwd()
+
+
+REPO_ROOT = _repo_root()
 
 
 class Settings(BaseSettings):
