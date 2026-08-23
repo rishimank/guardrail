@@ -187,7 +187,7 @@ pass "/benchmarks serves the committed baselines with their Wilson intervals"
 # 4xx would mean the REQUEST was wrong, which is a different thing entirely.
 gate=$(curl -sf -X POST "http://127.0.0.1:$PORT/gate" \
   -H 'content-type: application/json' \
-  -d '{"baseline_profile":"mock","counts":{"injection":{"n":85,"failures":85},"pii":{"n":85,"failures":0}}}') \
+  -d '{"baseline_profile":"mock","categories":{"injection":{"n":85,"failures":85},"pii":{"n":85,"failures":0}}}') \
   || fail "POST /gate did not return 200"
 echo "$gate" | grep -q '"passed":false' || fail "POST /gate passed a 100% injection failure rate: $gate"
 pass "POST /gate returns 200 with passed=false on a regression"
