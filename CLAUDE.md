@@ -182,6 +182,50 @@ full corpus — its train rows are what the training targets were mined from.
   (170 deterministic rows, 0 failures) as the CI-side baseline profile.
 Suite **133 green**, ruff + mypy clean.
 
+**Phase 8 COMPLETE (2026-08-23).** `Dockerfile` (3 stages), `.dockerignore`, `docker-compose.yml`,
+`scripts/docker_smoke.sh`, `tests/test_container.py`. Concepts + design forks were presented
+BEFORE any file was written (the corrected cadence). Design decisions:
+- **One image, two jobs.** `ENTRYPOINT ["python"]` + `CMD` uvicorn, so
+  `docker run guardrail:local scripts/gate.py ...` swaps the job with no `--entrypoint`. They
+  share ~100% of their dependency closure; two images would let the gate CI runs against drift
+  from the image that gets demoed.
+- **`python:3.13-slim`.** NOT alpine (musl → no manylinux wheels → scipy compiles from source),
+  NOT distroless (no shell/interpreter kills the two-jobs design).
+- **`.dockerignore` is an ALLOWLIST** (`*` then `!pyproject.toml !src !scripts !benchmarks
+  !tests`). A denylist has to predict every future file; the repo root holds `.env` (live key),
+  `venv/`, `models/`, `adapters/`, and the repo is PUBLIC. Docker does not read `.gitignore`.
+- **Layer order is the CI budget:** `COPY pyproject.toml` → `pip install` → `COPY src/` →
+  `pip install --no-deps --force-reinstall .`. Reversed, every one-char edit re-downloads scipy.
+  A stub `src/guardrail/__init__.py` exists only so hatchling can build in the deps layer.
+- **`--target test` runs pytest + ruff + mypy INSIDE the image**, against its own resolved
+  dependency set. `runtime` does not depend on `test`, so a plain build stays fast; CI invokes
+  the test stage explicitly. **136 passed in-image**, ruff + mypy clean.
+- Non-root uid 1000; `HEALTHCHECK` on `/health` (free + model-free by Phase 7 design);
+  `GUARDRAIL_SUT=mock` / `GUARDRAIL_ALLOW_JUDGE=false` restated as `ENV` so "cannot spend money"
+  is inspectable via `docker inspect`, not a claim about the source.
+- **Local build is `linux/arm64` (native, fast).** Phase 9 builds `linux/amd64` on the runner —
+  that is the real cross-arch parity test, deliberately deferred rather than emulated here.
+
+⚠️ **THREE REAL BUGS THE CONTAINER EXPOSED** (all fixed, all with regression tests):
+1. `runner.grade_responses` called `build_metrics()` unconditionally; DeepEval's `AnthropicModel`
+   resolves the API key **in its constructor**, so an injection/pii-only run *required* a key it
+   would never use. Invisible locally because DeepEval caches a key in `.deepeval/`. This had
+   silently broken the "free offline smoke" path that CI depends on. Now built lazily, only if a
+   judgment row is actually present. Test: `test_deterministic_only_run_never_builds_the_judge`.
+2. `api/settings.REPO_ROOT` walked up from `__file__` — right for editable installs, wrong for a
+   real wheel (`site-packages` → `/usr/local/lib/python3.13/benchmarks`). `/benchmarks` 404'd and
+   12 tests went red in-image. Now `_repo_root()` **verifies** the guess and falls back to `cwd`.
+   Tests: `test_default_benchmarks_dir_resolves_to_a_real_directory`, `..._falls_back_to_cwd_...`.
+3. Unpinned dev tools: the image resolved ruff 0.16.4 vs the venv's 0.15.21, and the newer
+   default rule set produced **79 findings in unchanged code**. `[dev]` is now pinned `==`
+   exactly. **A red build must mean the code regressed, never that a tool released.**
+
+`scripts/docker_smoke.sh` (8 steps, all green) is the actual proof: absence checks
+(`.env`/`venv`/`adapters`/`models`/`.git`/`mlx_lm`/`ANTHROPIC_API_KEY`), corpus loads from
+site-packages (662), a real 170-prompt MockSUT eval, gate exit **0**, **seeded regression → exit
+1**, missing run → exit **2**, then `/health` + `/benchmarks` + `POST /gate` over HTTP.
+Suite **141 green** (136 + 5 container tests that skip without a built image).
+
 ### Two facts that shape Phase 6 (decided 2026-08-18)
 
 **1. The fine-tune is a THREE-category fine-tune.** Training fuel = TRAIN-split failures only:
