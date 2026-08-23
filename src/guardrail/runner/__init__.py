@@ -166,11 +166,13 @@ def grade_responses(
 
     # Build the real judge once (reused across the run), and only if none was injected
     # AND at least one row in `todo` is a judgment category. See the docstring.
-    active = metrics
+    active: dict[Category, object] | None = metrics
     if active is None and any(
         by_id[row["id"]].category not in DETERMINISTIC_CATEGORIES for row in todo
     ):
-        active = build_metrics()
+        # dict(...) rather than a bare assignment: dict is invariant, so a
+        # dict[Category, GEval] is not a dict[Category, object] to the type checker.
+        active = dict(build_metrics())
     n = 0
     with out_path.open("a") as f:
         for i, row in enumerate(todo, 1):
