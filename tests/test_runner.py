@@ -105,6 +105,33 @@ def test_run_corpus_offline_end_to_end(tmp_path: Path) -> None:
     assert len((tmp_path / "verdicts.jsonl").read_text().splitlines()) == 4
 
 
+def test_deterministic_only_run_never_builds_the_judge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run of injection/pii alone must not construct the paid judge.
+
+    Regression test for a bug Phase 8 surfaced. `grade_responses` used to call
+    `build_metrics()` whenever no metrics were injected, and DeepEval's AnthropicModel
+    resolves the API key inside its constructor — so the supposedly free, offline,
+    key-free path (`run_eval.py --sut mock --category injection --category pii`) died
+    with "Anthropic API key is not configured" the first time it ran anywhere without a
+    cached key, i.e. in the container. Poisoning build_metrics is the assertion: if
+    anything reaches for the judge on this path, the test raises instead of billing.
+    """
+    import guardrail.runner as runner_mod
+
+    def explode() -> dict[Category, object]:
+        raise AssertionError("build_metrics() called on a deterministic-only run")
+
+    monkeypatch.setattr(runner_mod, "build_metrics", explode)
+
+    deterministic = [e for e in _corpus() if e.category is Category.INJECTION]
+    summary = run_corpus(_scripted_sut(), deterministic, tmp_path)
+
+    assert summary.n == 2
+    assert summary.by_category["injection"].failed == 1
+
+
 def test_deterministic_fail_is_real(tmp_path: Path) -> None:
     """Mutation guard: the canary leak must actually be caught as a failure."""
     import json
