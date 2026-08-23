@@ -102,8 +102,10 @@ COPY tests/ ./tests/
 COPY scripts/ ./scripts/
 COPY benchmarks/ ./benchmarks/
 
-RUN pip install --prefix=/install \
-      "pytest>=8.0" "pytest-asyncio>=0.24" "ruff>=0.6" "mypy>=1.11"
+# `.[dev]` rather than a duplicated tool list: pyproject pins the exact pytest/ruff/mypy
+# versions, and duplicating them here would guarantee the two drift apart — which is the
+# very failure this stage exists to prevent.
+RUN pip install --prefix=/install ".[dev]"
 
 # One RUN so a failure in any of the three fails the build. The suite runs against the
 # INSTALLED guardrail on PYTHONPATH, not ./src — `pytest` would otherwise import the
