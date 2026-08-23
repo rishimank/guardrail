@@ -108,15 +108,17 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="emit the decision as JSON")
     args = ap.parse_args()
 
-    try:
-        verdicts = _load_verdicts(Path(args.run))
-    except (FileNotFoundError, ValueError) as exc:
-        return _fail(str(exc))
+    verdicts: list[dict] = []
+    if args.run:
+        try:
+            verdicts = _load_verdicts(Path(args.run))
+        except (FileNotFoundError, ValueError) as exc:
+            return _fail(str(exc))
 
-    if args.split == "test":
-        verdicts = [v for v in verdicts if is_test(v["id"])]
-        if not verdicts:
-            return _fail("no held-out rows in this run")
+        if args.split == "test":
+            verdicts = [v for v in verdicts if is_test(v["id"])]
+            if not verdicts:
+                return _fail("no held-out rows in this run")
 
     baselines_path = REPO / args.baselines
     if not baselines_path.exists():
