@@ -145,6 +145,15 @@ def grade_responses(
     `metrics` is the injectable judge: default is the real Haiku metric set, but tests
     pass a fake one to grade offline. injection/pii are graded deterministically inside
     `grade()` and never touch the judge, so they cost nothing regardless.
+
+    THE JUDGE IS BUILT ONLY IF A ROW ACTUALLY NEEDS IT. `build_metrics()` constructs an
+    AnthropicModel, and DeepEval resolves the API key eagerly in that constructor — so
+    building it unconditionally made an injection/pii-only run *require* a key it would
+    never use. That went unnoticed on the dev machine, where DeepEval finds a cached key
+    in `.deepeval/`, and surfaced the moment the same run happened in a container with
+    no key at all (Phase 8). The deterministic-only path is meant to be the free, offline
+    smoke test that CI can run; a judge constructed for zero judge calls silently took
+    that away.
     """
     by_id = {e.id: e for e in entries}
     responses = _read_jsonl(responses_path)
