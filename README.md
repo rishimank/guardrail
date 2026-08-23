@@ -221,9 +221,11 @@ calibration/    judge-vs-reference-judge agreement (κ) report
 training/       mined failures -> LoRA dataset -> mlx-lm train
 runs/           banked responses + verdicts (gitignored)
 scripts/        serve, gate, run_eval, write_benchmarks, mine_failures, ask, calibration
-                docker_smoke.sh — proves the image evaluates, gates and serves
+                docker_smoke.sh  — proves the image evaluates, gates and serves
+                gate_selftest.py — proves the gate REFUSES; the negative control
 Dockerfile      3 stages: builder -> test (runs the suite IN the image) -> runtime
-tests/          141 tests, all offline against MockSUT — no network, no API key, $0
+.github/        ci.yml — checks · container (amd64) · eval gate. $0, no secrets.
+tests/          146 tests, all offline against MockSUT — no network, no API key, $0
 ```
 
 ## Running the service
