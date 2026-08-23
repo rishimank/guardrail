@@ -12,6 +12,12 @@ path — one less moving part between a regression and a red build.
     # gate only the held-out rows, against a named profile
     venv/bin/python scripts/gate.py --run runs/mlx --split test --profile mlx-test
 
+    # no run directory at all: gate one COMMITTED profile against another. This is the
+    # form CI uses, because runs/ is gitignored and a checkout has no banked run — but
+    # baselines.json is committed, so the shipped model's real Qwen numbers travel with
+    # the repo and can be re-checked against the ship criteria on every PR.
+    venv/bin/python scripts/gate.py --run-profile lora-v2-ck125 --profile mlx-test
+
 THREE EXIT CODES, NOT TWO
     0  every check passed
     1  the gate says no — a real regression, block the merge
