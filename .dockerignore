@@ -1,0 +1,39 @@
+# .dockerignore — what gets sent to the Docker daemon as build context.
+#
+# DENY EVERYTHING, THEN RE-ADMIT. This file is an allowlist, not a denylist, and that
+# is a deliberate security choice rather than a style one. A denylist has to predict
+# every future file worth excluding; the day someone adds `.env.staging` or dumps a
+# 2 GB checkpoint into the repo root, a denylist silently ships it. The repo root here
+# already contains `.env` (a live Anthropic key), `venv/` (hundreds of MB), `models/`
+# and `adapters/` (~1.7 GB of weights) — and the image is built from a PUBLIC repo.
+#
+# Docker does NOT read .gitignore. Being gitignored protects nothing here.
+#
+# PSEUDOCODE
+#     1. `*` excludes every top-level entry.
+#     2. `!<path>` re-admits exactly the four things the image needs.
+#     3. Re-deny build noise that lives inside those admitted directories.
+
+*
+
+# --- the only things the image is allowed to see ------------------------------
+# pyproject.toml   the dependency set and the wheel build config
+# src/             the package — including src/guardrail/dataset/data/, which is why
+#                  all 662 corpus prompts ship in the wheel with no data volume
+# scripts/         gate.py / run_eval.py — the CLI entrypoints CI drives
+# benchmarks/      baselines.json (MEASURED) + gate_policy.json (CHOSEN)
+# tests/           only reaches the `test` stage; the runtime stage never copies it
+!pyproject.toml
+!src
+!scripts
+!benchmarks
+!tests
+
+# --- re-deny noise inside the admitted paths ----------------------------------
+# Stale host bytecode would be copied over the fresh source and can shadow it.
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.DS_Store
