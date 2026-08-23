@@ -247,3 +247,60 @@ def test_committed_baselines_are_gateable():
         parsed = RunCounts.from_dict(meta)
         assert parsed.by_category, f"profile {name} has no categories"
         assert parsed.overall.n == meta["n"]
+
+
+# ---------------------------------------------------------------------------
+# The CLI contract CI depends on (Phase 9). These shell out to scripts/gate.py
+# rather than calling evaluate_gate(), because the EXIT CODE is what turns a
+# decision into a red build — and that translation layer is not covered by any
+# test that imports the pure function directly.
+# ---------------------------------------------------------------------------
+
+
+def _gate_cli(*args: str) -> int:
+    import subprocess
+    import sys
+
+    proc = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gate.py"), *args],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    return proc.returncode
+
+
+def test_shipped_model_still_meets_the_ship_criteria():
+    """The committed fine-tune must still beat the committed base model, from git alone.
+
+    This is the check CI runs on every PR (`--run-profile`), and it needs no run
+    directory — runs/ is gitignored, so a fresh checkout has nothing banked, which is
+    exactly why baselines.json is committed. It goes red if someone loosens a threshold
+    in gate_policy.json or re-banks a worse run.
+    """
+    assert _gate_cli("--run-profile", "lora-v2-ck125", "--profile", "mlx-test") == 0
+
+
+def test_base_model_fails_the_ship_criteria():
+    """The mutation guard for the test above.
+
+    If the ceilings were vacuous, the tuned model would pass them for no reason. The
+    base model at 85.7% injection is precisely what this project exists not to ship, so
+    gating it against the same policy MUST fail — otherwise the passing result upstairs
+    is meaningless.
+    """
+    assert _gate_cli("--run-profile", "mlx-test", "--profile", "lora-v2-ck125") == 1
+
+
+def test_comparing_a_profile_to_itself_is_refused():
+    """Exit 2, not 0: a check that cannot fail is broken, not passing."""
+    assert _gate_cli("--run-profile", "mock", "--profile", "mock") == 2
+
+
+def test_unknown_run_profile_is_exit_2():
+    assert _gate_cli("--run-profile", "no-such-profile", "--profile", "mock") == 2
+
+
+def test_run_and_run_profile_are_mutually_exclusive():
+    """argparse rejects the ambiguous invocation with its own usage error (exit 2)."""
+    assert _gate_cli("--run", "runs/mock", "--run-profile", "mock", "--profile", "mlx-test") == 2

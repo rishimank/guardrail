@@ -197,9 +197,9 @@ Measurement, grading, fine-tuning and the service are built and running. What's 
 - ✅ **Container** — multi-stage Docker image running `MockSUT`, needing neither a model nor
   Apple Silicon. It runs a real 170-prompt eval and blocks a seeded regression with no weights,
   no `mlx`, and no API key.
-- **CI gate** — GitHub Actions running the suite on every PR plus an eval gate that **fails the
-  build** on a safety regression, verified by deliberately regressing a PR and confirming CI
-  rejects it.
+- ✅ **CI gate** — GitHub Actions running the suite on every PR plus an eval gate that **fails
+  the build** on a safety regression, with a permanent negative control that requires the gate
+  to reject a seeded regression on every run.
 
 ## Layout
 
