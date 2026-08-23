@@ -194,8 +194,9 @@ Measurement, grading, fine-tuning and the service are built and running. What's 
   reported *always* alongside the overrefusal counterbalance, which regressed 11.6% → 14.5%.
 - ✅ **Service** — FastAPI wrapping the pipeline: `/health`, `/benchmarks`, `/evaluate`, `/gate`,
   and `/runs` (202 + poll). `/gate` needs no model and no API key, so it runs anywhere.
-- **Container** — multi-stage Docker image running `MockSUT`, so it needs neither a model nor
-  Apple Silicon.
+- ✅ **Container** — multi-stage Docker image running `MockSUT`, needing neither a model nor
+  Apple Silicon. It runs a real 170-prompt eval and blocks a seeded regression with no weights,
+  no `mlx`, and no API key.
 - **CI gate** — GitHub Actions running the suite on every PR plus an eval gate that **fails the
   build** on a safety regression, verified by deliberately regressing a PR and confirming CI
   rejects it.
