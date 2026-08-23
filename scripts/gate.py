@@ -30,9 +30,12 @@ other pages whoever owns this — the codes have to distinguish them.
 FREE AND OFFLINE. Reads two files and does arithmetic: no model, no judge, no network.
 
 PSEUDOCODE
-    1. Parse --run (a run dir or verdicts.jsonl), --profile, --split, --policy, --json.
+    1. Parse the run source — exactly one of --run (a run dir or verdicts.jsonl) or
+       --run-profile (a committed profile) — plus --profile, --split, --policy, --json.
     2. Load the run's verdicts; optionally keep only the held-out rows; roll up to
-       per-category {n, failures}.
+       per-category {n, failures}. With --run-profile the counts are read straight from
+       baselines.json instead, and comparing a profile to itself is refused (exit 2):
+       a check that cannot fail is broken, not passing.
     3. Resolve the baseline profile from benchmarks/baselines.json (explicit name, or
        the sut_defaults entry for $GUARDRAIL_SUT).
     4. evaluate_gate(run, baseline, policy) and print the table.
