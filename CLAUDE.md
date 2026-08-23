@@ -284,6 +284,10 @@ re-banks a run, or (b) run MockSUT over the deterministic categories live each b
 genuine end-to-end pipeline proof but on a mock model. **Both are honest; neither alone is the
 whole claim.** Recommend doing both and saying which is which — never describing (b) as if a real
 model ran in CI.
+✅ **(b) is de-risked as of Phase 8:** the live MockSUT run over the 170 deterministic prompts is
+proven to work in a container with no key and no weights (`docker compose run --rm eval` → 170
+verdicts, all `method: deterministic`), so Phase 9 can do both. Wording discipline stands: (b)
+proves the PIPELINE is portable, not that a real model was measured on Linux.
 
 ## Tech stack & key decisions
 
