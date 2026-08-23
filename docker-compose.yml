@@ -1,0 +1,84 @@
+# docker-compose.yml — the container's usage, written down.
+#
+# WHY THIS FILE EXISTS AT ALL
+# Everything here could be a `docker run` line. The reason to commit it is that the
+# interesting part of running this container is its ENVIRONMENT — which SUT, whether
+# paid grading is permitted, where runs land — and a long `-e` chain in someone's shell
+# history is not documentation. This file is the executable answer to "how is this
+# thing configured, and what is it allowed to do?"
+#
+#     docker compose up api                       # the service on :8000, free + offline
+#     docker compose run --rm eval                # a real 170-prompt run, $0, no API key
+#     docker compose run --rm gate                # PASS/FAIL, exit 0 / 1 / 2
+#
+# `eval` and `gate` sit behind a compose profile so `docker compose up` starts only the
+# server. They are one-shot commands that exit, and a service that exits immediately
+# looks like a crash in `compose up` output.
+#
+# PSEUDOCODE
+#     1. `api`  — build the runtime stage, publish 8000, mount ./runs, healthcheck.
+#     2. `eval` — same image, ENTRYPOINT overridden by `command:` to run_eval.py.
+#     3. `gate` — same image, gate.py against the committed `mock` baseline.
+
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+    image: guardrail:local
+    ports:
+      - "8000:8000"
+    environment:
+      # Both of these are already the image defaults. They are repeated here because
+      # this file is where a reader looks to find out what the deployment permits, and
+      # "free and offline" should be visible without reading the Dockerfile.
+      GUARDRAIL_SUT: "mock"
+      GUARDRAIL_ALLOW_JUDGE: "false"
+      # To grade the four judgment categories you must turn BOTH keys: set
+      # GUARDRAIL_ALLOW_JUDGE=true here AND pass use_judge=true per request. Then also:
+      #   ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:?set it in your shell, never in git}"
+      # It is commented out on purpose — an uncommented key line is how keys get
+      # committed, and this repo is public.
+    volumes:
+      # Runs produced inside the container land in the host's ./runs, so they can be
+      # inspected, gated, or fed to write_benchmarks.py without extracting anything.
+      # ./runs is gitignored, which is why benchmarks/baselines.json exists as the
+      # committed, machine-readable record instead.
+      - ./runs:/app/runs
+
+  eval:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: runtime
+    image: guardrail:local
+    environment:
+      GUARDRAIL_SUT: "mock"
+    volumes:
+      - ./runs:/app/runs
+    # The free, offline, end-to-end path: MockSUT over the 170 deterministic prompts
+    # (injection + pii), graded by verbatim canary-string matching. No model download,
+    # no API key, no network. The corpus comes from inside the installed wheel.
+    command:
+      - "scripts/run_eval.py"
+      - "--sut=mock"
+      - "--category=injection"
+      - "--category=pii"
+      - "--out-dir=/app/runs/mock-container"
+
+  gate:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: runtime
+    image: guardrail:local
+    volumes:
+      - ./runs:/app/runs
+    # Exit 0 = ship, 1 = regression (block the merge), 2 = the gate itself is broken.
+    # `docker compose run` propagates the command's exit code, so this composes into CI
+    # unchanged. Collapsing 1 and 2 would make a missing baselines.json look exactly
+    # like a caught regression — see scripts/gate.py.
+    command:
+      - "scripts/gate.py"
+      - "--run=/app/runs/mock-container"
+      - "--profile=mock"
