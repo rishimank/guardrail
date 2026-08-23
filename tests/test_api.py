@@ -357,3 +357,40 @@ def test_failed_work_is_recorded_not_swallowed():
     registry.execute(record.id, boom)
     assert record.state is RunState.FAILED
     assert "model exploded" in (record.error or "")
+
+
+def test_default_benchmarks_dir_resolves_to_a_real_directory():
+    """The default baselines path must exist wherever the package is installed.
+
+    Regression test for the Phase 8 wheel/editable split. `REPO_ROOT` walks up from
+    __file__, which lands in site-packages for a real `pip install .` — pointing
+    benchmarks_dir at a directory that does not exist. It failed as a 404 on /benchmarks
+    inside the container while working perfectly on the dev machine, which is exactly
+    the class of bug containerization exists to catch. `_repo_root()` now verifies the
+    guess and falls back to the working directory.
+    """
+    from guardrail.api.settings import Settings, _repo_root
+
+    root = _repo_root()
+    assert (root / "benchmarks").is_dir(), f"_repo_root() picked {root}, which has no benchmarks/"
+
+    cfg = Settings()
+    assert cfg.baselines_path.is_file()
+    assert cfg.gate_policy_path.is_file()
+
+
+def test_repo_root_falls_back_to_cwd_when_not_in_a_checkout(tmp_path, monkeypatch):
+    """Simulate the installed-wheel case: the walk-up target is not a repo."""
+    import guardrail.api.settings as settings_mod
+
+    fake_site_packages = tmp_path / "lib" / "python3.13" / "site-packages"
+    (fake_site_packages / "guardrail" / "api").mkdir(parents=True)
+    monkeypatch.setattr(
+        settings_mod, "__file__", str(fake_site_packages / "guardrail" / "api" / "settings.py")
+    )
+
+    workdir = tmp_path / "app"
+    (workdir / "benchmarks").mkdir(parents=True)
+    monkeypatch.chdir(workdir)
+
+    assert settings_mod._repo_root() == workdir.resolve()

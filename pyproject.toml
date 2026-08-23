@@ -29,11 +29,18 @@ dependencies = [
 mlx = [
     "mlx-lm>=0.20",
 ]
+# PINNED EXACTLY, not >=. The Docker `test` stage runs these same tools inside the image
+# and CI runs them again, so an unpinned linter means three environments checking the
+# same code with three different rule sets. That is not hypothetical: the first
+# containerised run installed ruff 0.16.4 against the dev machine's 0.15.21, and the
+# newer default rule set produced 79 findings in code that had not changed by a
+# character. A red build must mean the CODE regressed, never that a tool released.
+# Bump these on purpose, see what the new rules say, and commit the fixes with the bump.
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "ruff>=0.6",
-    "mypy>=1.11",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.15.21",
+    "mypy==2.3.0",
 ]
 
 [build-system]
