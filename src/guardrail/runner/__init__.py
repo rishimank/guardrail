@@ -164,8 +164,13 @@ def grade_responses(
     if not todo:
         return 0
 
-    # Build the real judge once (reused across the run) only if none was injected.
-    active = build_metrics() if metrics is None else metrics
+    # Build the real judge once (reused across the run), and only if none was injected
+    # AND at least one row in `todo` is a judgment category. See the docstring.
+    active = metrics
+    if active is None and any(
+        by_id[row["id"]].category not in DETERMINISTIC_CATEGORIES for row in todo
+    ):
+        active = build_metrics()
     n = 0
     with out_path.open("a") as f:
         for i, row in enumerate(todo, 1):
