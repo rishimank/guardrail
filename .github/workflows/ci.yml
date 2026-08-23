@@ -1,0 +1,223 @@
+# ci.yml — the gate, as a required status check (Phase 9).
+#
+# WHAT THIS WORKFLOW IS FOR
+# Everything before this phase made a claim; this file is where the claim becomes
+# enforceable. The bullet says the build FAILS on a safety regression, and the honest
+# version of that needs three things — the suite passes, the container works on a
+# machine that is not a Mac, and the gate demonstrably says NO to a bad change. Only
+# the third is interesting, and it is the one CI is structured around.
+#
+# THIS WORKFLOW COSTS $0 AND USES NO SECRETS.
+# Not a cost optimisation — a design consequence, and a security property. Phase 7 made
+# `/gate` a pure function over counts (no model, no judge), and Phase 8 proved the
+# deterministic half of the corpus grades with no API key at all. So there is nothing
+# here for a malicious pull request from a fork to exfiltrate: the workflow has no
+# ANTHROPIC_API_KEY to leak, because it never needs one. If a future step ever wants a
+# secret, that is the moment to stop and reconsider, not to add one.
+#
+# ⚠️ A RED X IS NOT A CLOSED DOOR. This file makes the checks run; it does not make them
+# required. Until `checks`, `image`, and `gate` are added as required status checks in
+# Settings -> Branches -> branch protection for `main`, a human can merge straight past
+# a failing gate. The workflow is the mechanism; branch protection is the enforcement.
+#
+# THE TWO KINDS OF EVIDENCE IN THE `gate` JOB, WHICH MUST NEVER BE CONFLATED
+#   (a) COMMITTED BASELINES — real Qwen2.5-3B numbers, measured on the held-out TEST
+#       split, travelling in git as benchmarks/baselines.json. Re-checked here against
+#       the ship criteria on every PR. These are REAL MODEL RESULTS, but they only
+#       change when a human re-banks a run.
+#   (b) A LIVE MOCK EVAL — 170 deterministic prompts generated and graded from scratch
+#       in this runner, right now. This is a genuine end-to-end proof that the PIPELINE
+#       works on a clean machine — and the model it evaluates is MockSUT. It is NOT
+#       evidence about Qwen.
+#   Both are honest. Describing (b) as if a real model were evaluated in CI would not
+#   be, so the step names, the logs and the job summary all say which is which.
+#
+# PSEUDOCODE
+#     1. Trigger on pull_request and on push to main; cancel superseded runs.
+#     2. Job `checks` — pytest + ruff + mypy natively. Fastest signal, ~1 min.
+#     3. Job `image`  — build linux/amd64, run the suite INSIDE the image, then the
+#        container smoke script. The cross-architecture test Phase 8 deferred.
+#     4. Job `gate`   — (a) committed profiles vs the ship criteria, (b) a live mock
+#        eval gated against its baseline, (c) the negative control that requires the
+#        gate to reject a seeded regression.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege. The default GITHUB_TOKEN can write to the repo; nothing in this
+# workflow has any reason to, and no image is published, so read is the whole need.
+permissions:
+  contents: read
+
+# Three pushes to a PR should produce one answer, not three queued ones. The final
+# commit is the only one whose verdict matters.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+  # Belt and braces: the SUT seam already defaults to mock, but a runner that somehow
+  # tried to load MLX would fail confusingly rather than obviously.
+  GUARDRAIL_SUT: mock
+  # Never enable in CI. Paid grading needs BOTH this and a per-request opt-in; keeping
+  # it false here means no workflow change alone can start spending money.
+  GUARDRAIL_ALLOW_JUDGE: "false"
+  DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
+
+jobs:
+  # ===========================================================================
+  # 1. The fast signal.
+  # ===========================================================================
+  checks:
+    name: tests · lint · types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # `pip install -e ".[dev]"` and NOT ".[dev,mlx]" — mlx-lm is Apple-Silicon-only.
+      # This line is the reason it was kept an optional extra since Phase 1: on an
+      # ubuntu runner, a core dependency on mlx-lm would fail here, before a single
+      # test ran, and no amount of CI configuration could rescue it.
+      - name: Install (no mlx — this runner is linux/amd64)
+        run: pip install -e ".[dev]"
+
+      # ruff and mypy are pinned EXACTLY in pyproject. The dev machine, the container
+      # and this runner must check the same code with the same rules; otherwise a red
+      # build can mean "a tool released" rather than "the code regressed". That is not
+      # hypothetical — it cost 79 phantom findings during Phase 8.
+      - name: pytest
+        run: pytest -q
+
+      - name: ruff
+        run: ruff check .
+
+      - name: mypy
+        run: mypy src
+
+  # ===========================================================================
+  # 2. The container, on an architecture the author's machine cannot produce.
+  # ===========================================================================
+  image:
+    name: container (linux/amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # `--target test` runs pytest + ruff + mypy INSIDE the image. Phase 8 built this
+      # stage on an M1 (linux/arm64); this runner is x86-64, so the same Dockerfile is
+      # being proved on a second architecture. That is the real portability test, and
+      # it is deliberately not emulated — emulation would prove QEMU works.
+      - name: Build and run the suite inside the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: test
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Loaded into the local daemon (not pushed anywhere) so the smoke script can run
+      # containers from it. The layer cache above means the dependency layer is not
+      # rebuilt — the whole reason Phase 8 copied pyproject.toml before src/.
+      - name: Build the runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          push: false
+          load: true
+          tags: guardrail:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Asserts what must be ABSENT (.env, venv/, adapters/, mlx_lm, ANTHROPIC_API_KEY),
+      # runs a real 170-prompt eval, then requires the gate to return 0, 1 and 2 in the
+      # three cases that distinguish a working gate from a decorative one.
+      - name: Container smoke test
+        run: scripts/docker_smoke.sh --no-build
+
+  # ===========================================================================
+  # 3. The gate. This is the job the resume bullet is about.
+  # ===========================================================================
+  gate:
+    name: eval gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # No [dev] extras: the gate is not a test, it is a decision, and it should run
+      # with exactly what a deployment would have.
+      - name: Install
+        run: pip install -e .
+
+      # ---- (a) REAL MODEL NUMBERS, from git -------------------------------------
+      # runs/ is gitignored, so a fresh checkout has no banked run — but baselines.json
+      # is committed, which is precisely why it exists. This re-asks the project's
+      # central question from files in the repo: does the fine-tuned model still beat
+      # the base model within tolerance, and still meet every ship-criteria ceiling?
+      #
+      # It goes red if someone loosens a threshold in gate_policy.json, or re-banks a
+      # worse run into baselines.json. Watch the overrefusal row in the log: the
+      # shipped model passes that check by 0.1 percentage points (14.5 observed vs a
+      # 14.6 limit). The counterbalance very nearly fired on the model we shipped, and
+      # that is a fact about this project worth seeing on every single build.
+      - name: "(a) committed baselines — REAL Qwen2.5-3B numbers, TEST split"
+        run: python scripts/gate.py --run-profile lora-v2-ck125 --profile mlx-test
+
+      # ---- (b) A LIVE PIPELINE RUN, on a mock model -----------------------------
+      # Generation + grading from scratch on a clean machine. Free and keyless because
+      # injection/pii are graded by verbatim canary matching, and the corpus ships
+      # inside the wheel. This proves the PIPELINE runs anywhere. It says nothing about
+      # Qwen — the model here is MockSUT.
+      - name: "(b) live eval — 170 deterministic prompts, MockSUT (NOT a real model)"
+        run: |
+          python scripts/run_eval.py \
+            --sut mock --category injection --category pii \
+            --out-dir runs/ci-mock
+
+      - name: "(b) gate the live run"
+        run: python scripts/gate.py --run runs/ci-mock --profile mock
+
+      # ---- (c) THE NEGATIVE CONTROL ---------------------------------------------
+      # Everything above proves things work. This proves the gate REFUSES. A gate that
+      # has only ever returned 0 is indistinguishable from one that cannot return
+      # anything else, and every green build in this repo would be worthless without
+      # some step that hands it an input it must reject.
+      - name: "(c) negative control — the gate must reject a seeded regression"
+        run: python scripts/gate_selftest.py --run runs/ci-mock --profile mock
+
+      # A summary a human reads in three seconds, which keeps (a) and (b) apart at the
+      # point where someone is most likely to conflate them: a green check mark.
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Eval gate"
+            echo
+            echo "| evidence | what it is | what it proves |"
+            echo "|---|---|---|"
+            echo "| (a) committed baselines | real Qwen2.5-3B, held-out TEST split, n=188 | the shipped model still meets the ship criteria |"
+            echo "| (b) live eval | MockSUT over 170 deterministic prompts, run just now | the pipeline works on a clean machine — **not** a real-model result |"
+            echo "| (c) negative control | a seeded regression fed to the gate | the gate returns 1, so a green build means something |"
+            echo
+            echo "No API key was used and nothing was spent. See \`BENCHMARKS.md\` for every claimed number."
+          } >> "$GITHUB_STEP_SUMMARY"
