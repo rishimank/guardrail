@@ -226,6 +226,51 @@ site-packages (662), a real 170-prompt MockSUT eval, gate exit **0**, **seeded r
 1**, missing run → exit **2**, then `/health` + `/benchmarks` + `POST /gate` over HTTP.
 Suite **141 green** (136 + 5 container tests that skip without a built image).
 
+**Phase 9 COMPLETE (2026-08-23).** `.github/workflows/ci.yml` (3 jobs), `scripts/gate_selftest.py`,
+`--run-profile` on `scripts/gate.py`, `.env.example` de-LangSmith'd, `.gitkeep` removed.
+Concepts + forks presented before any file was written. Design decisions:
+- **Three parallel jobs.** `checks` (pytest/ruff/mypy natively, ~1 min — a syntax error must not
+  wait on a Docker build) · `image` (build **linux/amd64**, run the suite INSIDE the image, then
+  `docker_smoke.sh --no-build`) · `gate`. Parallel because a lint error and a safety regression
+  are independent facts and you want both in one run.
+- **$0 and NO SECRETS — a design consequence, not a saving.** Phase 7 made `/gate` model-free and
+  Phase 8 proved deterministic grading needs no key, so there is no `ANTHROPIC_API_KEY` in the
+  workflow to leak. On a public repo where any fork can open a PR, that removes a whole class of
+  exfiltration risk. `GUARDRAIL_ALLOW_JUDGE: "false"` is pinned in `env:` regardless.
+- **`permissions: contents: read`** (the default token can write; nothing here needs to) and
+  `concurrency` with `cancel-in-progress`.
+- **The `image` job is the cross-arch test Phase 8 deferred.** M1 builds arm64; the runner builds
+  amd64 from the same Dockerfile, **not emulated** — emulation would prove QEMU works. Docker
+  layer cache via `type=gha`, which is what makes Phase 8's `COPY pyproject.toml`-first ordering
+  pay off *between* runs.
+- **NEW: `gate.py --run-profile`** gates one COMMITTED profile against another, with no run dir.
+  `runs/` is gitignored so a checkout has nothing banked — but `baselines.json` is committed,
+  which is why it exists. CI runs `--run-profile lora-v2-ck125 --profile mlx-test`: does the
+  fine-tune still beat the base model within tolerance and meet every ceiling? Goes red if
+  someone loosens a threshold or re-banks a worse run. Comparing a profile to itself is **exit 2**
+  — a check that cannot fail is broken, not passing.
+- **(a) vs (b) are never conflated.** (a) committed baselines = REAL Qwen numbers, TEST split,
+  n=188. (b) live MockSUT eval over 170 deterministic prompts = the PIPELINE works on a clean
+  machine, NOT a real-model result. Step names, logs and the `$GITHUB_STEP_SUMMARY` table all say
+  which is which.
+- **(c) the negative control** (`gate_selftest.py`): four cases — clean→0, seeded regression→1,
+  missing run→2, self-comparison→2. Shells out to `gate.py` rather than importing `evaluate_gate`,
+  because the **exit code** is the contract CI consumes. Mirrored in the suite by
+  `test_base_model_fails_the_ship_criteria` — the un-tuned model must be REJECTED by the same
+  policy the tuned model passes, or the ceilings are vacuous.
+
+⚠️ **THE 0.1-POINT FACT — the most quotable thing in the project.** Check (a) prints
+`overrefusal regression 14.5 observed vs 14.6 limit` on every build. The shipped fine-tune
+passes the counterbalance check by **one tenth of a percentage point**. The category that exists
+so "refuse everything" can't win the violation metric very nearly blocked the model we ship.
+
+⚠️ **A red X is not a closed door.** The workflow makes checks RUN; it does not make them
+REQUIRED. Until `checks`/`image`/`gate` are added as required status checks in Settings →
+Branches → branch protection for `main`, a human can merge past a failing gate. Mechanism vs
+enforcement — say it that way in an interview.
+
+Suite **146 green**, ruff + mypy clean.
+
 ### Two facts that shape Phase 6 (decided 2026-08-18)
 
 **1. The fine-tune is a THREE-category fine-tune.** Training fuel = TRAIN-split failures only:
