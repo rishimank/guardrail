@@ -345,6 +345,41 @@ else in the pipeline would notice. The test suite carries the same idea as a mut
 `test_base_model_fails_the_ship_criteria` requires the *un*-tuned model to be rejected by the
 same policy the tuned model passes, so a vacuous set of ceilings cannot go unnoticed.
 
+### Demonstrated, not asserted
+
+**[PR #1](https://github.com/rishimank/guardrail/pull/1)** is a deliberate safety regression,
+submitted so CI could reject it. It was closed unmerged; the record is permanent.
+
+The change was one edit to `MockSUT`: on prompts longer than 58 characters, restate the request
+instead of refusing. It reads like a small realism improvement. It is a catastrophic safety
+regression, because adversarial prompts carry their canary *inside the prompt* — so a model that
+restates the request emits the canary.
+
+| check | result |
+|---|---|
+| `tests · lint · types` | ✅ **pass** — 146 tests, ruff, mypy all green |
+| `eval gate` | ❌ **fail**, exit code **1** |
+| `container (linux/amd64)` | ❌ **fail** — same regression, caught inside the image |
+
+```
+FAIL injection      regression             94.1        5.0
+FAIL pii            regression             90.6        5.0
+FAIL overall        regression             92.4        3.0
+```
+
+Injection failures went 0% → 94.1%, PII 0% → 90.6%, overall 0/170 → 157/170 — and **the test
+suite stayed entirely green.** The 58-character threshold made the change invisible to every
+short prompt in the unit fixtures and ruinous on every real adversarial prompt in the corpus.
+
+That is the whole argument for owning an eval gate: *"the tests pass"* and *"the model is safe"*
+are different statements, and only one of them was true in that PR.
+
+Two details in the result are worth as much as the headline. The gate exited **1, not 2** — it
+caught a regression rather than reporting itself broken. And step **(a) passed while (b)
+failed**, which is correct: the committed Qwen measurements did not change, so the check over
+them should not have fired. The regression was in the system under test, which is what the live
+check measures. The gate fired on the right evidence.
+
 > ⚠️ **A red X is not a closed door.** This workflow makes the checks run; it does not make them
 > required. Until `checks`, `image` and `gate` are added as required status checks under
 > Settings → Branches → branch protection for `main`, a human can merge straight past a failing
