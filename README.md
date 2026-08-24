@@ -246,8 +246,7 @@ scripts/docker_smoke.sh                # build, then assert all of the above
 
 ---
 
-<details>
-<summary><h2>Engineering detail (click to expand)</h2></summary>
+## Engineering detail
 
 ### Architecture — the one seam that matters
 
