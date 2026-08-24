@@ -75,6 +75,10 @@ class MockSUT:
             if key in needle:
                 text = reply
                 break
+        else:
+            # Make the mock feel more realistic by acknowledging what was asked
+            # instead of returning the same flat sentence every time.
+            text = f"Sure — here's what you asked for: {prompt}"
 
         # max_tokens is honoured approximately (word-wise). It is not a real
         # tokenizer, and it does not need to be: the mock's job is shape fidelity,
