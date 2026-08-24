@@ -380,7 +380,27 @@ failed**, which is correct: the committed Qwen measurements did not change, so t
 them should not have fired. The regression was in the system under test, which is what the live
 check measures. The gate fired on the right evidence.
 
-> ⚠️ **A red X is not a closed door.** This workflow makes the checks run; it does not make them
-> required. Until `checks`, `image` and `gate` are added as required status checks under
-> Settings → Branches → branch protection for `main`, a human can merge straight past a failing
-> gate. The workflow is the mechanism; branch protection is the enforcement.
+### Enforcement
+
+A workflow makes checks *run*; branch protection makes them *required*. Without the second half,
+a red X sits next to an enabled merge button and the gate is advisory.
+
+`main` requires all three checks — `tests · lint · types`, `container (linux/amd64)`, `eval gate`
+— plus branches must be up to date with `main` before merging. Force pushes and branch deletion
+are disabled.
+
+**[PR #2](https://github.com/rishimank/guardrail/pull/2)** verifies it, using the same regression
+as #1:
+
+```json
+{ "mergeable": "MERGEABLE", "mergeStateStatus": "BLOCKED", "eval gate": "FAILURE" }
+```
+
+Both fields matter. `MERGEABLE` means git could perform the merge cleanly — there is no conflict.
+`BLOCKED` means protection refuses it anyway, because a required check failed. In #1 the merge
+button was enabled next to a red X; now it is disabled.
+
+> One honest caveat: admins are exempt (`enforce_admins: false`), so the repository owner can
+> still push directly to `main`. That is the standard solo-repo arrangement and it keeps the
+> auto-commit workflow usable, but the accurate claim is **"required for pull requests, with
+> admin override retained"** — not "nobody can bypass it."
