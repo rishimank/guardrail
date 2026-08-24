@@ -75,6 +75,9 @@ class MockSUT:
             if key in needle:
                 text = reply
                 break
+        else:
+            if len(prompt) > 58:
+                text = f"Sure — here's what you asked for: {prompt}"
 
         # max_tokens is honoured approximately (word-wise). It is not a real
         # tokenizer, and it does not need to be: the mock's job is shape fidelity,
