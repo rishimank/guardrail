@@ -135,7 +135,7 @@ cp .env.example .env                   # add ANTHROPIC_API_KEY
 venv/bin/python scripts/ask.py --sut mock "What is the capital of France?"   # free, instant
 venv/bin/python scripts/ask.py --sut mlx  "Who wrote the novel Zorgon?"      # real Qwen
 
-venv/bin/pytest                        # 70 tests, no model, no key, sub-second
+venv/bin/pytest                        # 146 tests, no model, no key, seconds
 venv/bin/ruff check . && venv/bin/mypy src
 ```
 
@@ -280,3 +280,72 @@ Both are fixed with regression tests. Linter and type-checker versions are **pin
 in `pyproject.toml` for the same reason: the image resolved a newer ruff than the venv and
 reported 79 findings in code that had not changed by a character. A red build must mean the
 code regressed, never that a tool released.
+
+## Continuous integration
+
+Three jobs on every pull request and every push to `main` — `.github/workflows/ci.yml`:
+
+| job | what it does |
+|---|---|
+| `checks` | pytest + ruff + mypy on the runner. ~1 min, the fastest signal. |
+| `image` | builds the image on **linux/amd64**, runs the suite *inside* it, then `docker_smoke.sh`. |
+| `gate` | the eval gate — the job the safety claim is about. |
+
+**The workflow costs $0 and uses no secrets.** That is a design consequence, not a saving:
+`/gate` is a pure function over counts, and the deterministic half of the corpus grades by
+verbatim canary matching. There is no `ANTHROPIC_API_KEY` in this workflow because none is
+needed — which also means a pull request from a fork has nothing to exfiltrate.
+
+The `image` job is the portability test that the author's machine cannot perform. The M1 builds
+`linux/arm64`; the runner builds `linux/amd64` from the same Dockerfile, without emulation.
+
+### Two kinds of evidence, deliberately kept apart
+
+The gate job produces both, and the step names say which is which:
+
+- **(a) committed baselines** — real Qwen2.5-3B numbers on the held-out TEST split (n=188),
+  travelling in git as `benchmarks/baselines.json`. Every PR re-asks the central question from
+  those files: does the fine-tune still beat the base model within tolerance, and still meet
+  every ship-criteria ceiling? It goes red if someone loosens a threshold or re-banks a worse
+  run. Real model results — but they only change when a human re-banks a run.
+- **(b) a live eval** — 170 deterministic prompts generated and graded from scratch in the
+  runner. A genuine end-to-end proof that the *pipeline* works on a clean machine. The model
+  it evaluates is `MockSUT`, so it is **not** evidence about Qwen.
+
+Both are honest. Presenting (b) as if a real model had been evaluated in CI would not be.
+
+### The 0.1 points worth knowing about
+
+Check (a) prints this row on every build:
+
+```
+ok   overrefusal    regression             14.5       14.6
+```
+
+The shipped fine-tune passes the overrefusal check by **one tenth of a percentage point**. The
+counterbalance category — the one that exists so "refuse everything" can't win the violation
+metric — very nearly blocked the model this project ships. That is the most useful thing in the
+whole gate, and it is visible on every run rather than buried in a report.
+
+### The negative control
+
+Every other check proves something *works*. `scripts/gate_selftest.py` proves the gate
+*refuses*, and CI fails if it does not:
+
+```
+ok  exit 0 (want 0)  clean run passes
+ok  exit 1 (want 1)  seeded injection regression is caught
+ok  exit 2 (want 2)  missing run is 'broken', not 'regressed'
+ok  exit 2 (want 2)  a profile compared to itself is refused
+```
+
+A gate that has only ever returned 0 is indistinguishable from one that cannot return anything
+else; `sys.exit(0)` at the top of `gate.py` would leave every build green forever and nothing
+else in the pipeline would notice. The test suite carries the same idea as a mutation guard:
+`test_base_model_fails_the_ship_criteria` requires the *un*-tuned model to be rejected by the
+same policy the tuned model passes, so a vacuous set of ceilings cannot go unnoticed.
+
+> ⚠️ **A red X is not a closed door.** This workflow makes the checks run; it does not make them
+> required. Until `checks`, `image` and `gate` are added as required status checks under
+> Settings → Branches → branch protection for `main`, a human can merge straight past a failing
+> gate. The workflow is the mechanism; branch protection is the enforcement.
