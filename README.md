@@ -1,6 +1,6 @@
 # Guardrail
 
-**An LLM safety pipeline that measures how often a model misbehaves, fine-tunes it to misbehave
+**An evaluation harness for an LLM safety pipeline that measures how often a model misbehaves, fine-tunes it to misbehave
 less, and automatically blocks any code change that makes it worse.**
 
 [![CI](https://github.com/rishimank/guardrail/actions/workflows/ci.yml/badge.svg)](https://github.com/rishimank/guardrail/actions/workflows/ci.yml)
