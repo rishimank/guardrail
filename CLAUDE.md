@@ -432,6 +432,10 @@ Run with the venv's Python (no activation needed): `venv/bin/python <script>`.
   `docker build -t guardrail:local .` · `docker compose up api` ·
   `docker compose run --rm eval` · `docker compose run --rm gate` ·
   `scripts/docker_smoke.sh` (build + 8 assertions) · `docker build --target test .`
+- **The CI gate job, locally** (Phase 9; all free + offline):
+  `venv/bin/python scripts/gate.py --run-profile lora-v2-ck125 --profile mlx-test`  (a)
+  `venv/bin/python scripts/run_eval.py --sut mock --category injection --category pii --out-dir runs/ci-mock`  (b)
+  `venv/bin/python scripts/gate_selftest.py --run runs/ci-mock --profile mock`  (c)
 - **Regenerate the numbers** (BENCHMARKS.md *and* `benchmarks/baselines.json`, one command —
   they must never drift):
   `venv/bin/python scripts/write_benchmarks.py --baseline mlx --tuned lora-v2-ck125 --adapter adapters/v2 --checkpoint 125`
