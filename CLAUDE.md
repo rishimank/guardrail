@@ -339,9 +339,23 @@ Two secondary facts worth quoting: the gate exited **1, not 2** (caught a regres
 report itself broken), and **step (a) passed while (b) failed** — correct, because the committed
 Qwen measurements did not change; the regression was in the SUT, which only (b) measures live.
 
-**REMAINING:**
-- **Branch protection** on `main` — see the red-X warning above. Until `checks`/`image`/`gate`
-  are required status checks, a human can merge past a red gate. This is the last real gap.
+✅ **BRANCH PROTECTION ENABLED AND VERIFIED (2026-08-24).** `main` requires all three checks
+(`tests · lint · types`, `container (linux/amd64)`, `eval gate`), `strict: true` (branch must be
+up to date), force pushes and deletions off, no required reviews (a solo owner cannot approve
+their own PR, so requiring reviews would deadlock the repo).
+**[PR #2](https://github.com/rishimank/guardrail/pull/2)** proves it with the same regression:
+`{"mergeable": "MERGEABLE", "mergeStateStatus": "BLOCKED", "eval gate": "FAILURE"}`. Both fields
+matter — MERGEABLE = git could merge cleanly, BLOCKED = protection refuses anyway.
+⚠️ **`enforce_admins: false`** — the owner can still push directly to `main` (chosen so the
+auto-commit hook stays usable; required status checks block direct pushes, not just merges).
+**The accurate claim is "required for pull requests, with admin override retained,"** NOT
+"nobody can bypass it." Do not overstate this in an interview.
+⚠️ The actual merge was deliberately NOT attempted — GitHub already reported BLOCKED, and if
+protection had been misconfigured the attempt would have landed a safety regression on public
+`main`. Reading the status is sufficient evidence; forcing the experiment was not worth the risk.
+
+**PROJECT COMPLETE.** All nine phases done (4 deliberately dropped), pushed, CI green, gate
+enforced. Nothing outstanding.
 
 **Open decision for Phase 8/9 (raised 2026-08-21).** The corpus DOES ship in the wheel (see the
 corpus-location correction below), so CI can run a real, free, offline eval — but only over the
