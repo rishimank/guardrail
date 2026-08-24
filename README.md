@@ -362,8 +362,6 @@ Both fixed, both with regression tests. Linter and type-checker versions are now
 the image resolved a newer linter than the laptop and reported 79 findings in code that had not
 changed by a character. **A red build must mean the code regressed, never that a tool released.**
 
-</details>
-
 ---
 
 ## Honest limitations
